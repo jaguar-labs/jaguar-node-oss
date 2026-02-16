@@ -1,6 +1,6 @@
 ### Quick Start
 This setup not include nvme disk setup. It lease the nvme disk setup to the operators.
-> **_NOTE:_**  Only tested on Ubuntu 22.04.
+> **_NOTE:_**  Tested on Ubuntu 22.04 and 24.04.
 
 1. clone the repo and cd into the directory
 ```bash
