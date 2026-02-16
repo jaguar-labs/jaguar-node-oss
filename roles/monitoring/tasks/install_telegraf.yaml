@@ -11,16 +11,16 @@
 
 - name: Download InfluxData GPG key
   ansible.builtin.shell: |
-    curl -fsSL https://repos.influxdata.com/influxdata-archive_compat.key | gpg --dearmor -o /etc/apt/keyrings/influxdata.gpg
+    curl -fsSL https://repos.influxdata.com/influxdata-archive.key | gpg --dearmor -o /etc/apt/keyrings/influxdata-archive.gpg
   args:
-    creates: /etc/apt/keyrings/influxdata.gpg
+    creates: /etc/apt/keyrings/influxdata-archive.gpg
   when: ansible_distribution == 'Ubuntu'
   tags:
     - telegraf.install
 
 - name: Set permissions on GPG keyring
   ansible.builtin.file:
-    path: /etc/apt/keyrings/influxdata.gpg
+    path: /etc/apt/keyrings/influxdata-archive.gpg
     mode: '0644'
   when: ansible_distribution == 'Ubuntu'
   tags:
@@ -28,9 +28,9 @@
 
 - name: Add telegraf repo with signed-by
   apt_repository:
-    repo: "deb [signed-by=/etc/apt/keyrings/influxdata.gpg] https://repos.influxdata.com/{{ ansible_distribution | lower }} {{ ansible_distribution_release | lower }} stable"
+    repo: "deb [signed-by=/etc/apt/keyrings/influxdata-archive.gpg] https://repos.influxdata.com/debian stable main"
     state: present
-    filename: influxdb
+    filename: influxdata
   when: ansible_distribution == 'Ubuntu'
   tags:
     - telegraf.install
