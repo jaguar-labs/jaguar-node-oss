@@ -77,14 +77,6 @@
     destination_port: "{{ transformed_port_range }}"
     jump: ACCEPT
 
-- name: 🔥 Allow ingress bdn UDP ports
-  iptables:
-    chain: INPUT
-    protocol: udp
-    destination_port: '18888'
-    jump: ACCEPT
-  when: bloxroute.bdn.enabled | bool
-
 - name: 🔥 Set the policy for the INPUT chain to DROP (IPv4)
   iptables:
     chain: INPUT
