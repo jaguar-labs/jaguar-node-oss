@@ -1,0 +1,38 @@
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+out/
+*.ipr
+
+# IntelliJ-specific files
+# Optional: ignore workspace-specific and sensitive configs
+.idea/**/workspace.xml
+.idea/**/tasks.xml
+.idea/**/usage.statistics.xml
+.idea/**/dictionaries
+.idea/**/shelf
+
+# Ansible
+*.retry
+*.log
+*.tar.gz
+*.tmp
+*.bak
+*.swp
+*.pyc
+__pycache__/
+vault_pass.txt
+*.vault
+inventory.ini
+*.orig
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# Python virtual environments (if using)
+venv/
+.env/
+.envrc
+

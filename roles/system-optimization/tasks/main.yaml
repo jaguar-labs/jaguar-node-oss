@@ -1,0 +1,9 @@
+---
+- name: setup tuned
+  vars:
+    profile_name: "solana"
+  import_tasks: tuned.yaml
+  tags:
+    - config.tuned
+  become: true
+  when: use_tuned

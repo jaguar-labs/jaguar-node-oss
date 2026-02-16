@@ -1,0 +1,18 @@
+[Unit]
+Description=Solana Validator
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=1
+User={{ solana_user }}
+LimitNOFILE=2024000
+LimitMEMLOCK=2000000000
+LogRateLimitIntervalSec=0
+Environment="PATH=/bin:/usr/bin:{{ env_path }}"
+ExecStart="/home/{{ solana_user }}/start-node.sh"
+
+[Install]
+WantedBy=multi-user.target

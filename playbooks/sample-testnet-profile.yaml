@@ -1,0 +1,133 @@
+---
+- hosts: all
+  become: yes
+  pre_tasks:
+    - name: Ensure all required variables are set
+      assert:
+        that:
+          - solana_version is defined
+          - solana_user is defined
+          - solana_home is defined
+          - secrets_path is defined
+          - dynamic_port_range is defined
+          - pager_duty_key is defined
+          - validator_name is defined
+          - ledger_path is defined
+          - accounts_path is defined
+          - vote_account_pubkey is defined
+          - cluster_rpc_address is defined
+          - cluster_environment is defined
+          - telegraf_database is defined
+          - telegraf_urls is defined
+          - telegraf_username is defined
+          - telegraf_password is defined
+          - secrets_path is defined
+          - env_path is defined
+          - validator_log_path is defined
+          - rpc_port is defined
+          - rpc_bind_address is defined
+          - dynamic_port_range is defined
+          - expected_genesis_hash is defined
+          - solana_metrics_url is defined
+          - snapshots_path is defined
+          - validator_identity_pubkey is defined
+    - name: Ensure jito variables are set if jito is enabled
+      assert:
+        that:
+          - jito.enabled | bool
+          - jito.tip_payment_program_pubkey is defined
+          - jito.tip_distribution_program_pubkey is defined
+          - jito.merkle_root_upload_authority is defined
+          - jito.commission_bps is defined
+          - jito.block_engine_url is defined
+          - jito.shred_receiver_address is defined
+      when: jito.enabled | bool
+  vars:
+    disk_management:
+      enable: True
+      mount: True
+      config: True
+      disks:
+        - mount_dir: /mnt/solana_ledger
+          dev: /dev/nvme0n1
+          fs_type: xfs
+          options: rw,noatime,nodiratime,discard,attr2,inode64,logbufs=8,logbsize=256k,allocsize=64k
+          subdir: ledger
+          startup_arg: ledger
+        - mount_dir: /mnt/solana_accounts
+          dev: /dev/nvme1n1
+          fs_type: xfs
+          options: rw,noatime,nodiratime,discard,attr2,inode64,logbufs=8,logbsize=256k,allocsize=64k
+          subdir: accounts
+          startup_arg: accounts
+        - mount_dir: /mnt/solana_snapshots
+          dev: /dev/nvme4n1
+          fs_type: xfs
+          options: rw,noatime,nodiratime,discard,attr2,inode64,logbufs=8,logbsize=256k,allocsize=64k
+          subdir: snapshots
+          startup_arg: snapshots
+    ramdisk_management:
+      enabled: True
+      mount: True
+      config: True
+      ramdisks:
+        - mount_dir: /mnt/ramdisk_cache
+          options: nodev,nosuid,noexec,nodiratime,size=120G
+          subdir: accounts_hash_cache
+          startup_arg: accounts-hash-cache-path
+        - mount_dir: /mnt/ramdisk_index
+          options: nodev,nosuid,noexec,nodiratime,size=120G
+          subdir: accounts_index
+          startup_arg: accounts-index-path
+    solana_version: "3.1.8"
+    watch_tower_version: "3.1.8"
+    solana_user: solana
+    solana_home: "/home/solana"
+    secrets_path: "/home/solana/.secrets"
+    dynamic_port_range: "8000-10000"
+    pager_duty_key:
+    validator_name: sample-testnet
+    ledger_path: "/mnt/solana_ledger/ledger"
+    accounts_path: "/mnt/solana_accounts/accounts"
+    snapshots_path: "/mnt/solana_snapshots/snapshots"
+    vote_account_pubkey: ""
+    cluster_rpc_address: "http://127.0.0.1:8899"
+    remote_cluster_rpc_address: "https://api.testnet.solana.com"
+    cluster_environment: "testnet"
+    telegraf_database: v_metrics
+    telegraf_urls: http://influx.thevalidators.io:8086
+    telegraf_username: v_user
+    telegraf_password: thepassword
+    env_path: "/home/solana/.local/share/solana/install/active_release/bin"
+    validator_log_path: "/mnt/solana/log"
+    rpc_port: 8899
+    rpc_bind_address: "127.0.0.1"
+    expected_genesis_hash: "4uhcVJyU9pJkvQyS88uRDiswHXSCkY3zQawwpjk2NsNY"
+    solana_metrics_url: https://metrics.solana.com:8086,db=tds,u=testnet_write,p=c4fa841aa918bf8274e3e2a44d77568d9861b3ea
+    validator_identity_pubkey: ""
+    mostly_confirmed_threshold: 0.45 4 0 24
+    # staked nodes overrides
+    staked_map_id:
+      AumWK3q6Wj8cFyREQaycsoXTHM1FpLPCcghSnyKLXMPP: 100000000000000000
+    known_validators:
+      - 5D1fNXzvv5NjV1ysLjirC4WY92RNsVH18vjmcszZd8on
+      - dDzy5SR3AXdYWVqbDEkVFdvSPCtS9ihF5kJkHCtXoFs
+      - Ft5fbkqNa76vnsjYNwjDZUXoTWpP7VYm3mtsaQckQADN
+      - eoKpUABi59aT4rR9HGS3LcMecfut9x7zJyodWWP43YQ
+      - 9QxCLckBiJc783jnMvXZubK4wH86Eqqvashtrwvcsgkv
+    jito:
+      enabled: True
+      tip_payment_program_pubkey: "GJHtFqM9agxPmkeKjHny6qiRKrXZALvvFGiKf11QE7hy"
+      tip_distribution_program_pubkey: "DzvGET57TAgEDxvm3ERUM4GNcsAJdqjDLCne9sdfY4wf"
+      merkle_root_upload_authority: "7T4inmPmtNBX3MhLwJ9hFsSMnGJYYkKioVABSNTWVRuS"
+      commission_bps: 0
+      block_engine_url: "https://ny.testnet.block-engine.jito.wtf"
+      shred_receiver_address: "64.130.35.224:1002"
+      ntp: "ntp.dallas.jito.wtf"
+  roles:
+    - role: system-optimization
+    - role: common
+    - role: node-base
+    - role: validator
+    - role: alerting
+    - role: monitoring

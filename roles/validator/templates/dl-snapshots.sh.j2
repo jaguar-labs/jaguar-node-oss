@@ -1,0 +1,81 @@
+#!/bin/bash
+
+# Default values
+DEFAULT_RPC_URL="http://139.178.68.207:80"
+DEFAULT_MAX_SLOT_DIFF=100
+DEFAULT_OUTPUT_DIR="/mnt/solana_snapshots/snapshots"
+
+# Parse command-line arguments
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        --rpc-url) RPC_URL="$2"; shift ;;
+        --max-slot-diff) MAX_SLOT_DIFF="$2"; shift ;;
+        --output-dir) OUTPUT_DIR="$2"; shift ;;
+        *) echo "Unknown parameter: $1"; exit 1 ;;
+    esac
+    shift
+done
+
+# Use defaults if parameters not provided
+RPC_URL=${RPC_URL:-$DEFAULT_RPC_URL}
+MAX_SLOT_DIFF=${MAX_SLOT_DIFF:-$DEFAULT_MAX_SLOT_DIFF}
+OUTPUT_DIR=${OUTPUT_DIR:-$DEFAULT_OUTPUT_DIR}
+
+# Validate inputs
+if ! [[ "$MAX_SLOT_DIFF" =~ ^[0-9]+$ ]]; then
+    echo "Error: --max-slot-diff must be a positive integer"
+    exit 1
+fi
+
+# Ensure output directory exists
+if [ ! -d "$OUTPUT_DIR" ]; then
+    echo "Creating output directory: $OUTPUT_DIR"
+    mkdir -p "$OUTPUT_DIR" || { echo "Error: Could not create directory $OUTPUT_DIR"; exit 1; }
+fi
+
+# Get current slot
+CURRENT_SLOT=$(curl -s "$RPC_URL" -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","id":1,"method":"getSlot"}' | jq .result)
+if [ -z "$CURRENT_SLOT" ] || [ "$CURRENT_SLOT" = "null" ]; then
+    echo "Error: Could not fetch current slot from $RPC_URL"
+    exit 1
+fi
+
+# Get full snapshot slot from redirect
+FULL_SNAPSHOT_URL=$(wget --spider --trust-server-names "$RPC_URL/snapshot.tar.bz2" 2>&1 | grep Location | awk '{print $2}')
+FULL_SNAPSHOT_SLOT=$(echo "$FULL_SNAPSHOT_URL" | grep -oP 'snapshot-\K\d+')
+if [ -z "$FULL_SNAPSHOT_SLOT" ]; then
+    echo "Error: Could not extract full snapshot slot from $FULL_SNAPSHOT_URL"
+    exit 1
+fi
+
+# Get incremental snapshot slot from redirect
+INCR_SNAPSHOT_URL=$(wget --spider --trust-server-names "$RPC_URL/incremental-snapshot.tar.bz2" 2>&1 | grep Location | awk '{print $2}')
+INCR_SNAPSHOT_SLOT=$(echo "$INCR_SNAPSHOT_URL" | grep -oP 'incremental-snapshot-\d+-\K\d+')
+if [ -z "$INCR_SNAPSHOT_SLOT" ]; then
+    echo "Error: Could not extract incremental snapshot slot from $INCR_SNAPSHOT_URL"
+    exit 1
+fi
+
+# Calculate slot differences
+FULL_SLOT_DIFFERENCE=$((CURRENT_SLOT - FULL_SNAPSHOT_SLOT))
+INCR_SLOT_DIFFERENCE=$((CURRENT_SLOT - INCR_SNAPSHOT_SLOT))
+
+echo "Current Slot: $CURRENT_SLOT"
+echo "Full Snapshot Slot: $FULL_SNAPSHOT_SLOT"
+echo "Incremental Snapshot Slot: $INCR_SNAPSHOT_SLOT"
+echo "Full Snapshot Slot Difference: $FULL_SLOT_DIFFERENCE"
+echo "Incremental Snapshot Slot Difference: $INCR_SLOT_DIFFERENCE"
+echo "Max Slot Difference Allowed: $MAX_SLOT_DIFF"
+echo "Output Directory: $OUTPUT_DIR"
+
+# Check if either snapshot is recent
+if [ "$FULL_SLOT_DIFFERENCE" -le "$MAX_SLOT_DIFF" ] || [ "$INCR_SLOT_DIFFERENCE" -le "$MAX_SLOT_DIFF" ]; then
+    echo "At least one snapshot is recent (≤$MAX_SLOT_DIFF slots). Downloading both to $OUTPUT_DIR..."
+    wget --trust-server-names "$RPC_URL/snapshot.tar.bz2" -P "$OUTPUT_DIR"
+    wget --trust-server-names "$RPC_URL/incremental-snapshot.tar.bz2" -P "$OUTPUT_DIR"
+else
+    echo "Both snapshots are too old (>$MAX_SLOT_DIFF slots). Aborting download."
+    echo "Full snapshot age: $FULL_SLOT_DIFFERENCE slots"
+    echo "Incremental snapshot age: $INCR_SLOT_DIFFERENCE slots"
+    exit 1
+fi

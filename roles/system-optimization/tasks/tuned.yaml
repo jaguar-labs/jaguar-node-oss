@@ -1,0 +1,36 @@
+---
+- name: Ensure tuned is installed
+  package:
+    name: tuned
+    state: present
+
+- name: Create custom profile directory
+  file:
+    path: "/etc/tuned/{{ profile_name }}"
+    state: directory
+    mode: '0755'
+
+- name: Create profile configuration
+  template:
+    src: tuned.conf.j2
+    dest: /etc/tuned/{{ profile_name }}/tuned.conf
+    mode: 0644
+    owner: root
+    group: root
+
+- name: Ensure tuned service is enabled and started
+  service:
+    name: tuned
+    state: started
+    enabled: yes
+  register: tuned_service
+
+- name: Activate {{ profile_name }} profile
+  command: "tuned-adm profile {{ profile_name }}"
+  register: tuned_profile
+  changed_when: tuned_profile.rc == 0
+
+- name: Set tuned changed fact
+  set_fact:
+    tuned_changed: "{{ tuned_service.changed or tuned_profile.changed }}"
+  when: tuned_service.changed is defined or tuned_profile.changed is defined

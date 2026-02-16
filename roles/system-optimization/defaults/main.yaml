@@ -1,0 +1,5 @@
+---
+poh_pinned_cpu_core: 2
+use_tuned: true
+use_low_latency_kernel: true
+cluster_environment: mainnet

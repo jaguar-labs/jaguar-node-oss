@@ -1,0 +1,43 @@
+---
+- name: Copy cpu-performance.service systemd service file
+  copy:
+    src: "../files/cpu-performance.service"
+    dest: /etc/systemd/system/cpu-performance.service
+    mode: 0644
+    owner: root
+    group: root
+
+- name: Install cpufrequtils for CPU governor management
+  apt:
+    name: cpufrequtils
+    state: present
+  ignore_errors: true
+
+- name: Set CPU governor to performance in config file
+  lineinfile:
+    path: /etc/default/cpufrequtils
+    line: 'GOVERNOR="performance"'
+    create: yes
+  ignore_errors: true
+
+- name: Enable cpu-performance service
+  systemd:
+    name: cpu-performance.service
+    enabled: yes
+    state: started
+    daemon_reload: yes
+
+- name: Copy cpu-performance.timer systemd service file
+  copy:
+    src: "../files/cpu-performance.timer"
+    dest: /etc/systemd/system/cpu-performance.timer
+    mode: 0644
+    owner: root
+    group: root
+
+- name: Enable cpu-performance service timer
+  systemd:
+    name: cpu-performance.timer
+    enabled: yes
+    state: started
+    daemon_reload: yes

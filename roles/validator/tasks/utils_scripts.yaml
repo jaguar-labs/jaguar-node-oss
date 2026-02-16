@@ -1,0 +1,46 @@
+---
+- name: Create solana validator transition script node-transition
+  template:
+    src: node-transition.sh.j2
+    dest: "{{ solana_home }}/node-transition.sh"
+    mode: 0755
+    owner: "{{ solana_user }}"
+    group: "{{ solana_user }}"
+
+- name: Create Jito build script
+  copy:
+    src: build-jito.sh
+    dest: "{{ solana_home }}/build-jito.sh"
+    mode: 0755
+    owner: "{{ solana_user }}"
+    group: "{{ solana_user }}"
+  when: jito.enabled
+
+- name: Generate pin-poh.sh from template
+  template:
+    src: pin-poh.sh.j2
+    dest: "{{ solana_home }}/pin-poh.sh"
+    owner: "{{ solana_user }}"
+    group: "{{ solana_user }}"
+    mode: "0755"
+  when: poh_pinned_cpu_core is defined and poh_pinned_cpu_core
+
+- name: Create mostly_confirmed_threshold
+  copy:
+    dest: "/mostly_confirmed_threshold"
+    content: "{{ mostly_confirmed_threshold }}\n"
+    mode: "0644"
+    owner: "{{ solana_user }}"
+    group: "{{ solana_user }}"
+  when: mostly_confirmed_threshold is defined and mostly_confirmed_threshold
+
+- name: Create staked-nodes-overrides.yaml
+  copy:
+    dest: "{{ solana_home }}/staked-nodes-overrides.yaml"
+    content: |
+      staked_map_id:
+        {{ staked_map_id | to_nice_yaml(indent=2) | indent(4) }}
+    mode: "0644"
+    owner: "{{ solana_user }}"
+    group: "{{ solana_user }}"
+  when: staked_map_id is defined and staked_map_id | length > 0

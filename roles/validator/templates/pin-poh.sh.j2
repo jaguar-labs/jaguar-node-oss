@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# main pid of solana-validator
+while [ -z "$solana_pid" ]; do
+    solana_pid=$(pgrep -f "agave-validator --identity")
+    if [ -z "$solana_pid" ]; then
+        echo "set_affinity: solana_validator_404"
+        sleep 20
+    fi
+done
+
+# find `solPohTickProd` thread id
+while [ -z "$poh_thread_pid" ]; do
+    poh_thread_pid=$(ps -T -p $solana_pid -o spid,comm | grep 'solPohTickProd' | awk '{print $1}')
+    if [ -z "$poh_thread_pid" ]; then
+        echo "set_affinity: solPohTickProd_404"
+        sleep 120
+    fi
+done
+
+current_affinity=$(taskset -cp $poh_thread_pid {{ poh_pinned_cpu_core }}>&1 | awk '{print $NF}')
+if [ "$current_affinity" == "{{ poh_pinned_cpu_core }}" ]; then
+    echo "set_affinity: solPohTickProd_already_set"
+    exit 1
+else
+    sudo taskset -cp {{ poh_pinned_cpu_core }} $poh_thread_pid
+    echo "set_affinity: set_done"
+fi

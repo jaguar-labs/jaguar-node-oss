@@ -1,0 +1,25 @@
+---
+- name: create startup script for agave
+  become: true
+  become_user: "{{ solana_user }}"
+  become_method: sudo
+  template:
+    src: start-node.sh.j2
+    dest: "{{ solana_home }}/start-node.sh"
+    owner: "{{ solana_user }}"
+    group: "{{ solana_user }}"
+    mode: "0755"
+  when: not jito.enabled
+
+- name: create startup script for jito
+  become: true
+  become_user: "{{ solana_user }}"
+  become_method: sudo
+  template:
+    src: start-node-jito.sh.j2
+    dest: "{{ solana_home }}/start-node.sh"
+    owner: "{{ solana_user }}"
+    group: "{{ solana_user }}"
+    mode: "0755"
+  when: jito.enabled
+
