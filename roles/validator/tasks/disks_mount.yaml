@@ -15,14 +15,21 @@
   with_items: "{{ disk_management.disks }}"
   when: disk_management.mount
 
-- name: Mount disks
-  mount:
-    path: "{{ item.mount_dir }}"
-    src: "{{ item.dev }}"
-    fstype: "{{ item.fs_type }}"
-    opts: "{{ item.options }}"
-    state: mounted
+- name: Look up filesystem UUIDs
+  command: blkid -s UUID -o value {{ item.dev }}
+  register: disk_uuids
+  changed_when: false
   with_items: "{{ disk_management.disks }}"
+  when: disk_management.mount
+
+- name: Mount disks by UUID
+  mount:
+    path: "{{ item.item.mount_dir }}"
+    src: "UUID={{ item.stdout }}"
+    fstype: "{{ item.item.fs_type }}"
+    opts: "{{ item.item.options }}"
+    state: mounted
+  loop: "{{ disk_uuids.results }}"
   when: disk_management.mount
 
 - name: Create sub directories
