@@ -71,16 +71,12 @@
       mount: True
       config: True
       ramdisks:
-        - mount_dir: /mnt/ramdisk_cache
-          options: nodev,nosuid,noexec,nodiratime,size=120G
-          subdir: accounts_hash_cache
-          startup_arg: accounts-hash-cache-path
         - mount_dir: /mnt/ramdisk_index
           options: nodev,nosuid,noexec,nodiratime,size=120G
           subdir: accounts_index
           startup_arg: accounts-index-path
-    solana_version: "3.1.8"
-    watch_tower_version: "3.1.8"
+    solana_version: "4.0.0"
+    watch_tower_version: "4.0.0"
     solana_user: solana
     solana_home: "/home/solana"
     secrets_path: "/home/solana/.secrets"
