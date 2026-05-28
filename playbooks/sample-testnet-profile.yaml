@@ -54,18 +54,21 @@
           options: rw,noatime,nodiratime,discard,attr2,inode64,logbufs=8,logbsize=256k,allocsize=64k
           subdir: ledger
           startup_arg: ledger
+          force: true
         - mount_dir: /mnt/solana_accounts
           dev: /dev/nvme1n1
           fs_type: xfs
           options: rw,noatime,nodiratime,discard,attr2,inode64,logbufs=8,logbsize=256k,allocsize=64k
           subdir: accounts
           startup_arg: accounts
+          force: true
         - mount_dir: /mnt/solana_snapshots
           dev: /dev/nvme4n1
           fs_type: xfs
           options: rw,noatime,nodiratime,discard,attr2,inode64,logbufs=8,logbsize=256k,allocsize=64k
           subdir: snapshots
           startup_arg: snapshots
+          force: true
     ramdisk_management:
       enabled: True
       mount: True

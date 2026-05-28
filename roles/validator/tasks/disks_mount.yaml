@@ -12,6 +12,7 @@
   community.general.filesystem:
     fstype: xfs
     dev: "{{ item.dev }}"
+    force: "{{ item.force | default(false) }}"
   with_items: "{{ disk_management.disks }}"
   when: disk_management.mount
 
