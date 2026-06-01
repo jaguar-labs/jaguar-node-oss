@@ -8,13 +8,26 @@
   with_items: "{{ disk_management.disks }}"
   when: disk_management.mount
 
-- name: Format disk
-  community.general.filesystem:
-    fstype: xfs
-    dev: "{{ item.dev }}"
-    force: "{{ item.force | default(false) }}"
+- name: Detect current filesystem on each disk
+  command: "blkid -s TYPE -o value {{ item.dev }}"
+  register: disk_current_fstype
+  changed_when: false
+  failed_when: false
+  check_mode: no
   with_items: "{{ disk_management.disks }}"
   when: disk_management.mount
+
+- name: Format disk (only when current fstype differs from requested)
+  community.general.filesystem:
+    fstype: "{{ item.item.fs_type }}"
+    dev: "{{ item.item.dev }}"
+    force: "{{ item.item.force | default(false) }}"
+  loop: "{{ disk_current_fstype.results }}"
+  loop_control:
+    label: "{{ item.item.dev }} ({{ item.stdout or 'none' }} -> {{ item.item.fs_type }})"
+  when:
+    - disk_management.mount
+    - item.stdout != item.item.fs_type
 
 - name: Look up filesystem UUIDs
   command: blkid -s UUID -o value {{ item.dev }}

@@ -1,0 +1,45 @@
+---
+- name: DZ | Allow GRE inbound
+  become: yes
+  ansible.builtin.iptables:
+    chain: INPUT
+    protocol: 47        # GRE
+    jump: ACCEPT
+    comment: "doublezero overlay (GRE)"
+
+- name: DZ | Allow GRE outbound
+  become: yes
+  ansible.builtin.iptables:
+    chain: OUTPUT
+    protocol: 47
+    jump: ACCEPT
+    comment: "doublezero overlay (GRE)"
+
+- name: DZ | Allow BGP inbound on doublezero0 (169.254/16)
+  become: yes
+  ansible.builtin.iptables:
+    chain: INPUT
+    in_interface: doublezero0
+    source: 169.254.0.0/16
+    destination: 169.254.0.0/16
+    protocol: tcp
+    destination_port: "179"
+    jump: ACCEPT
+    comment: "doublezero BGP"
+
+- name: DZ | Allow BGP outbound on doublezero0 (169.254/16)
+  become: yes
+  ansible.builtin.iptables:
+    chain: OUTPUT
+    out_interface: doublezero0
+    source: 169.254.0.0/16
+    destination: 169.254.0.0/16
+    protocol: tcp
+    destination_port: "179"
+    jump: ACCEPT
+    comment: "doublezero BGP"
+
+- name: DZ | Persist iptables rules
+  become: yes
+  command: netfilter-persistent save
+  changed_when: false

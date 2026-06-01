@@ -1,0 +1,19 @@
+---
+- name: DZ | Validate cluster choice
+  assert:
+    that:
+      - doublezero.cluster in ['testnet', 'mainnet']
+    fail_msg: "doublezero.cluster must be 'testnet' or 'mainnet', got '{{ doublezero.cluster }}'"
+
+- name: DZ | Install package and apt repo
+  import_tasks: install.yaml
+
+- name: DZ | Manage identity keypair
+  import_tasks: keypair.yaml
+
+- name: DZ | Firewall rules (GRE + BGP)
+  import_tasks: firewall.yaml
+
+- name: DZ | Metrics override
+  import_tasks: metrics.yaml
+  when: doublezero.metrics_enabled | bool

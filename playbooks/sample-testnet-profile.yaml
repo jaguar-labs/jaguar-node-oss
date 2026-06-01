@@ -160,9 +160,17 @@
       ring_rx: 512
       ring_tx: 512
       combined_queues: ""            # blank => count of retransmit_cpu_cores
+    doublezero:
+      enabled: false
+      cluster: "{{ cluster_environment }}"   # "testnet" or "mainnet"
+      user: "{{ solana_user }}"
+      metrics_enabled: true
+      metrics_addr: "localhost:2113"
   roles:
     - role: system-optimization
     - role: common
+    - role: doublezero
+      when: doublezero.enabled | default(false)
     - role: node-base
     - role: validator
     - role: alerting

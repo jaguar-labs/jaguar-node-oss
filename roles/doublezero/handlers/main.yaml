@@ -1,0 +1,7 @@
+---
+- name: restart doublezerod
+  become: yes
+  systemd:
+    name: doublezerod
+    state: restarted
+    daemon_reload: yes

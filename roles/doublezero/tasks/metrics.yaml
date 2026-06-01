@@ -1,0 +1,19 @@
+---
+- name: DZ | Ensure doublezerod override directory exists
+  become: yes
+  file:
+    path: /etc/systemd/system/doublezerod.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: DZ | Install doublezerod override for {{ doublezero.cluster }} + Prometheus metrics
+  become: yes
+  template:
+    src: doublezerod-override.conf.j2
+    dest: /etc/systemd/system/doublezerod.service.d/override.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart doublezerod
