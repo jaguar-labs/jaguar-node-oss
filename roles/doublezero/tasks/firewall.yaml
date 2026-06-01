@@ -1,4 +1,23 @@
 ---
+- name: DZ | Ensure ICMP echo replies are not suppressed
+  become: yes
+  ansible.posix.sysctl:
+    name: net.ipv4.icmp_echo_ignore_all
+    value: "0"
+    state: present
+    sysctl_file: /etc/sysctl.conf
+    sysctl_set: yes
+    reload: yes
+
+- name: DZ | Allow ICMP echo-request (ping) inbound
+  become: yes
+  ansible.builtin.iptables:
+    chain: INPUT
+    protocol: icmp
+    icmp_type: echo-request
+    jump: ACCEPT
+    comment: "doublezero ICMP echo-request"
+
 - name: DZ | Allow GRE inbound
   become: yes
   ansible.builtin.iptables:
