@@ -1,0 +1,8 @@
+---
+- name: restart solana-validator
+  debug:
+    msg: |
+      ACTION REQUIRED: solana-validator config changed (unit, start script, or XDP NIC service).
+      Restart manually when you're ready:
+        sudo systemctl daemon-reload
+        sudo systemctl restart solana-validator

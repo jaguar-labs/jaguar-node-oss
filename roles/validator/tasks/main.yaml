@@ -19,3 +19,9 @@
 
 - name: ramdisks mgmt
   import_tasks: ramdisk.yaml
+
+- name: XDP NIC tuning
+  import_tasks: xdp_nic.yaml
+  when: xdp.enabled | default(false)
+  tags:
+    - validator.xdp

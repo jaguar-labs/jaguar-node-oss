@@ -42,6 +42,35 @@
           - jito.block_engine_url is defined
           - jito.shred_receiver_address is defined
       when: jito.enabled | bool
+    - name: Validate XDP prerequisites
+      when: xdp.enabled | default(false)
+      block:
+        - name: XDP | assert agave version supports XDP
+          assert:
+            that:
+              - solana_version is version('3.0.9', '>=')
+            fail_msg: "XDP requires agave >= 3.0.9; solana_version is {{ solana_version }}"
+        - name: XDP | assert kernel >= 6.8
+          assert:
+            that:
+              - ansible_kernel.split('-')[0] is version('6.8', '>=')
+            fail_msg: "XDP requires kernel >= 6.8 (6.14 for igb zero-copy); host has {{ ansible_kernel }}"
+        - name: XDP | assert interface is set
+          assert:
+            that:
+              - xdp.interface | length > 0
+            fail_msg: "xdp.enabled is true but xdp.interface is empty"
+        - name: XDP | assert PoH core not in retransmit cores
+          assert:
+            that:
+              - (poh_pinned_cpu_core | string) not in xdp.retransmit_cpu_cores.split(',')
+            fail_msg: "poh_pinned_cpu_core ({{ poh_pinned_cpu_core }}) must not appear in xdp.retransmit_cpu_cores ({{ xdp.retransmit_cpu_cores }})"
+        - name: XDP | assert ring sizes are valid powers of 2
+          assert:
+            that:
+              - xdp.ring_rx in [256, 512, 1024, 2048, 4096]
+              - xdp.ring_tx in [256, 512, 1024, 2048, 4096]
+            fail_msg: "xdp.ring_rx/ring_tx must be one of 256/512/1024/2048/4096"
   vars:
     disk_management:
       enable: True
@@ -123,6 +152,14 @@
       block_engine_url: "https://ny.testnet.block-engine.jito.wtf"
       shred_receiver_address: "64.130.35.224:1002"
       ntp: "ntp.dallas.jito.wtf"
+    xdp:
+      enabled: false
+      interface: ""                  # e.g. "enp196s0f0np0"; must be a bond MEMBER if bonded
+      retransmit_cpu_cores: "1"      # comma-separated; must not contain poh_pinned_cpu_core
+      zero_copy: true                # set false on bnxt_en NIC drivers
+      ring_rx: 512
+      ring_tx: 512
+      combined_queues: ""            # blank => count of retransmit_cpu_cores
   roles:
     - role: system-optimization
     - role: common

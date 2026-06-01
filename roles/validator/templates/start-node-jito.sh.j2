@@ -34,4 +34,14 @@ exec {{ env_path }}/agave-validator \
     --expected-genesis-hash {{ expected_genesis_hash }} \
     --wal-recovery-mode skip_any_corrupted_record \
     --block-verification-method unified-scheduler \
+{% if poh_pinned_cpu_core is defined %}
+    --experimental-poh-pinned-cpu-core {{ poh_pinned_cpu_core }} \
+{% endif %}
+{% if xdp.enabled %}
+    --experimental-retransmit-xdp-interface {{ xdp.interface }} \
+    --experimental-retransmit-xdp-cpu-cores {{ xdp.retransmit_cpu_cores }} \
+{% if xdp.zero_copy %}
+    --experimental-retransmit-xdp-zero-copy \
+{% endif %}
+{% endif %}
     --limit-ledger-size

@@ -1,0 +1,13 @@
+[Unit]
+Description=Solana XDP NIC tuning ({{ xdp.interface }})
+BindsTo=sys-subsystem-net-devices-{{ xdp.interface }}.device
+After=sys-subsystem-net-devices-{{ xdp.interface }}.device
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/sbin/ethtool -G {{ xdp.interface }} rx {{ xdp.ring_rx }} tx {{ xdp.ring_tx }}
+ExecStart=-/sbin/ethtool -L {{ xdp.interface }} combined {{ xdp_combined_queues | default(xdp.retransmit_cpu_cores.split(',') | length) }}
+
+[Install]
+WantedBy=multi-user.target

@@ -10,6 +10,7 @@
     group: "{{ solana_user }}"
     mode: "0755"
   when: not jito.enabled
+  notify: restart solana-validator
 
 - name: create startup script for jito
   become: true
@@ -22,4 +23,5 @@
     group: "{{ solana_user }}"
     mode: "0755"
   when: jito.enabled
+  notify: restart solana-validator
 

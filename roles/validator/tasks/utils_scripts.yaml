@@ -16,14 +16,10 @@
     group: "{{ solana_user }}"
   when: jito.enabled
 
-- name: Generate pin-poh.sh from template
-  template:
-    src: pin-poh.sh.j2
-    dest: "{{ solana_home }}/pin-poh.sh"
-    owner: "{{ solana_user }}"
-    group: "{{ solana_user }}"
-    mode: "0755"
-  when: poh_pinned_cpu_core is defined and poh_pinned_cpu_core
+- name: Remove legacy pin-poh.sh (superseded by --experimental-poh-pinned-cpu-core)
+  file:
+    path: "{{ solana_home }}/pin-poh.sh"
+    state: absent
 
 - name: Create mostly_confirmed_threshold
   copy:

@@ -15,3 +15,11 @@ jito:
   commission_bps: 800
   block_engine_url: https://ny.mainnet.block-engine.jito.wtf
   shred_receiver_address: 141.98.216.96:1002
+xdp:
+  enabled: false
+  interface: ""
+  retransmit_cpu_cores: "1"
+  zero_copy: true
+  ring_rx: 512
+  ring_tx: 512
+  combined_queues: ""
