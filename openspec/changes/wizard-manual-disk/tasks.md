@@ -22,4 +22,4 @@
 - [x] 4.1 Round-trip: regenerate `playbooks/sample-testnet-profile.yaml` (separate, same inputs) — empty diff required
 - [x] 4.2 Scripted e2e, manual single: playbook parses with `mount: False, config: True`, shared-device entries, `/mnt/solana/*` paths; `disk-setup-<name>.sh` exists, contains the same device/mount-dir/options values as the playbook, and running it without `--yes` prints commands and exits non-zero (safe to execute on the dev box — the guard means nothing runs)
 - [x] 4.3 Scripted e2e, manual separate + invalid layout value re-prompt; automated single/separate outputs byte-identical to pre-change (compare against a pre-change generation)
-- [ ] 4.4 shellcheck on `bin/new-playbook.sh` and on a generated `disk-setup-*.sh` specimen; yamllint + pinned ansible-lint clean; commit, push, CI green
+- [x] 4.4 shellcheck on `bin/new-playbook.sh` and on a generated `disk-setup-*.sh` specimen; yamllint + pinned ansible-lint clean; commit, push, CI green
