@@ -7,9 +7,9 @@ A GitHub Actions workflow SHALL run on every push and pull request, executing: `
 - **WHEN** a commit satisfying all configured rules is pushed
 - **THEN** the workflow passes and the README badge reports green
 
-#### Scenario: Broken playbook reference
-- **WHEN** a commit introduces a syntax error or references an undefined `vars_files`/role
-- **THEN** the syntax-check job fails and blocks the PR
+#### Scenario: Broken playbook structure
+- **WHEN** a commit introduces a YAML syntax error or references a nonexistent role
+- **THEN** the syntax-check job fails and blocks the PR (verified: a nonexistent role fails the job; note `--syntax-check` does NOT validate that `vars_files` targets exist — that class of error only surfaces at run time)
 
 #### Scenario: Vaulted secrets during syntax-check
 - **WHEN** the playbook loads an encrypted vault file via `vars_files`

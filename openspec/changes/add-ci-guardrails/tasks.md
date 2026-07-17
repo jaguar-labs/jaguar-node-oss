@@ -16,7 +16,7 @@
 
 - [x] 3.1 Create `.github/workflows/ci.yaml` with three jobs (yamllint, ansible-lint, syntax-check) triggered on push and pull_request, with pinned ansible-core and ansible-lint versions
 - [x] 3.2 Syntax-check job: install collections from `requirements.yml`, generate a dummy `vault/secrets.yaml` from `vault/secrets.example.yaml` keys if the real (encrypted) one is absent, then run `ansible-playbook --syntax-check` over `playbooks/*.yaml` with a dummy vault password file
-- [ ] 3.3 Push the branch and iterate until all three jobs are green (CI is the execution surface — no controller runs)
+- [x] 3.3 Push the branch and iterate until all three jobs are green (CI is the execution surface — no controller runs)
 
 ## 4. README corrections
 
@@ -25,6 +25,6 @@
 
 ## 5. Verification
 
-- [ ] 5.1 Confirm a deliberately broken YAML file on a scratch branch fails yamllint in CI
-- [ ] 5.2 Confirm an undefined-variable-style playbook error (e.g. missing vars_files target) fails the syntax-check job
+- [x] 5.1 Confirm a deliberately broken YAML file on a scratch branch fails yamllint in CI
+- [x] 5.2 Confirm an undefined-variable-style playbook error (e.g. missing vars_files target) fails the syntax-check job
 - [ ] 5.3 Confirm the main branch build is green and the badge renders in the README
