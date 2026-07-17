@@ -13,6 +13,12 @@ out/
 .idea/**/dictionaries
 .idea/**/shelf
 
+# Secrets — only the ansible-vault ENCRYPTED vault/secrets.yaml may be committed;
+# anything matching these patterns is unencrypted plaintext by convention.
+vault/secrets.plain*.yaml
+vault/*.dec.yaml
+*.vault-pass*
+
 # Ansible
 *.retry
 *.log
