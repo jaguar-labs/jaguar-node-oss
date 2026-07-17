@@ -24,4 +24,3 @@
     mode: "0755"
   when: jito.enabled
   notify: restart solana-validator
-

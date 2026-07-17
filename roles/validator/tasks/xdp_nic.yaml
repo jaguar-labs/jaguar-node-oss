@@ -66,4 +66,8 @@
 
 - name: XDP | Report NUMA topology for operator review
   debug:
-    msg: "NIC {{ xdp.interface }} (driver {{ xdp_nic_driver }}) is on NUMA node {{ xdp_nic_numa.stdout }}; verify poh_pinned_cpu_core ({{ poh_pinned_cpu_core | default('unset') }}) and xdp.retransmit_cpu_cores ({{ xdp.retransmit_cpu_cores }}) live on the same node"
+    msg: >-
+      NIC {{ xdp.interface }} (driver {{ xdp_nic_driver }}) is on NUMA node
+      {{ xdp_nic_numa.stdout }}; verify poh_pinned_cpu_core
+      ({{ poh_pinned_cpu_core | default('unset') }}) and xdp.retransmit_cpu_cores
+      ({{ xdp.retransmit_cpu_cores }}) live on the same node
