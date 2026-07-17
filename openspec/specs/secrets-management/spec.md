@@ -6,7 +6,7 @@ TBD - created by syncing change `modernize-safety`. Governs how secret values co
 ## Requirements
 
 ### Requirement: Secrets are stored only in an encrypted vault file
-All secret values consumed by playbooks — `telegraf_username`, `telegraf_password`, and `pager_duty_key` — SHALL live in an Ansible Vault encrypted file (`vault/secrets.yaml`) loaded via `vars_files`. No private secret value SHALL appear in plaintext in any git-tracked file. The `solana_metrics_user`/`solana_metrics_password` values are the public per-cluster write credentials published in the Anza docs: they load from the same vault file for uniformity, but MAY appear in plaintext in `vault/secrets.example.yaml` as pre-filled defaults.
+All private secret values consumed by playbooks — currently `pager_duty_key` — SHALL live in an Ansible Vault encrypted file (`vault/secrets.yaml`) loaded via `vars_files`, and SHALL NOT appear in plaintext in any git-tracked file. Public/shared credentials — `solana_metrics_user`/`solana_metrics_password` (the per-cluster write credentials published in the Anza docs) and `telegraf_username`/`telegraf_password` (shared community metrics-backend values) — MAY appear in plaintext as role/example defaults; the vault file overrides them (play `vars_files` beat role defaults) for operators whose backends use private credentials.
 
 #### Scenario: Playbook run with vault
 - **WHEN** the operator runs the playbook with `--ask-vault-pass` or `--vault-password-file`
@@ -17,8 +17,8 @@ All secret values consumed by playbooks — `telegraf_username`, `telegraf_passw
 - **THEN** Ansible fails before executing any role tasks, with an error indicating the vault file could not be decrypted
 
 #### Scenario: Grep for secrets in tracked files
-- **WHEN** git-tracked files are searched for the telegraf password or PagerDuty key
-- **THEN** no plaintext private secret value is found (the public Anza metrics write credentials in `vault/secrets.example.yaml` are exempt — they are documentation values, not secrets)
+- **WHEN** git-tracked files are searched for the PagerDuty key
+- **THEN** no plaintext private secret value is found (the public Anza metrics write credentials and the shared community telegraf credentials are exempt — they are documentation/default values, not private secrets)
 
 ### Requirement: A committed example file documents the vault contract
 The repository SHALL contain a plaintext `vault/secrets.example.yaml` listing every expected secret key with placeholder values, and a `.gitignore` rule SHALL exclude unencrypted local secrets files (e.g. `vault/secrets.plain*.yaml`).

@@ -8,5 +8,7 @@ cluster_rpc_address: http://localhost:8899
 cluster_environment: mainnet-beta
 telegraf_database: v_metrics
 telegraf_urls: http://95.216.207.40:8086
-# telegraf_username / telegraf_password intentionally have no defaults:
-# they are secrets supplied via vault/secrets.yaml (see vault/secrets.example.yaml)
+# shared community defaults for the metrics backend — override via
+# vault/secrets.yaml (play vars_files beat role defaults) if yours differ
+telegraf_username: v_user
+telegraf_password: thepassword
