@@ -32,5 +32,6 @@ skip_list:
   - package-latest         # idiom-sweep: pin state=present instead of latest
   - risky-file-permissions # idiom-sweep: explicit mode on file/copy tasks
   - no-relative-paths      # idiom-sweep: role-relative src paths
+  - var-naming[no-role-prefix]  # idiom-sweep: shared vars move to group_vars/ (deliberate cross-role vars today, see CLAUDE.md)
   # --- accepted (not planned for removal) ---
   - role-name              # roles use dashes (system-optimization, node-base); not published to Galaxy
