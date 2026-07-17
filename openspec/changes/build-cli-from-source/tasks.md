@@ -27,4 +27,4 @@
 - [x] 5.1 Static review: task-by-task dry read of the new install flow against the four spec requirements (source-only install, jito build scope, idempotency/symlink safety, CLI completeness)
 - [x] 5.2 shellcheck on the updated `build-jito.sh`; yamllint + pinned ansible-lint clean
 - [x] 5.3 Verify the clone tag exists upstream for the current pinned version (`git ls-remote` check for `v4.1.0-beta.3`) and that `--no-build-validator-bins` is present in that tag's `cargo-install-all.sh`
-- [ ] 5.4 Commit, push, confirm CI green; flag to the operator that the next real provisioning run validates the build end-to-end
+- [x] 5.4 Commit, push, confirm CI green; flag to the operator that the next real provisioning run validates the build end-to-end
