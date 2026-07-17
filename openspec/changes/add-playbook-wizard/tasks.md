@@ -26,4 +26,4 @@
 
 - [x] 4.1 Drive the wizard end-to-end with scripted stdin for: testnet defaults, mainnet with jito custom commission, xdp enabled, decline-vault, existing-target-without-force (expect abort) — inspecting generated files for correctness (no @@ tokens, valid YAML, correct presets)
 - [x] 4.2 Verify vault-step cleanup: simulate encrypt failure (wrong confirm password / interrupt) and confirm no plaintext `vault/secrets.yaml` remains
-- [ ] 4.3 Commit a wizard-generated playbook on the branch and confirm CI (yamllint, ansible-lint, syntax-check with dummy vault) passes on it
+- [x] 4.3 Commit a wizard-generated playbook on the branch and confirm CI (yamllint, ansible-lint, syntax-check with dummy vault) passes on it
