@@ -1,27 +1,87 @@
 ---
-- name: create download dir
+# Agave 4.1+ ships no prebuilt validator binary and release.anza.xyz is
+# CDN-blocked from some datacenter IPs, so agave is built from source
+# (github.com + crates.io only). Jito hosts build CLI tools only here
+# (--no-build-validator-bins); build-jito.sh supplies the validator.
+
+- name: check free space for the agave build
+  shell: df --output=avail -BG {{ solana_home }} | tail -1 | tr -dc '0-9'
+  register: agave_free_gb
+  changed_when: false
+
+- name: assert at least 10 GB free in {{ solana_home }}
+  assert:
+    that:
+      - agave_free_gb.stdout | int >= 10
+    fail_msg: "Building agave from source needs >= 10 GB free in {{ solana_home }} (found {{ agave_free_gb.stdout }} GB)"
+
+- name: create build directory
   become: yes
   file:
-    path: /tmp/solana
+    path: "{{ solana_home }}/build"
     state: directory
     owner: "{{ solana_user }}"
     group: "{{ solana_user }}"
+    mode: '0755'
 
-- name: install solana
-  block:
-    - name: download latest solana release installer
-      get_url:
-        url: "https://release.anza.xyz/v{{ solana_version | default('stable') }}/install"
-        dest: /tmp/solana/
-        mode: 0755
-    - name: run solana installer
-      shell: /tmp/solana/install
+- name: check currently checked-out agave tag
   become: yes
   become_user: "{{ solana_user }}"
   become_method: sudo
+  shell: git -C {{ solana_home }}/build/agave describe --tags --exact-match 2>/dev/null || true
+  args:
+    executable: /bin/bash
+  register: agave_checked_out_tag
+  changed_when: false
 
-
-- name: remove installer
+- name: remove stale build tree from a different version
+  become: yes
+  become_user: "{{ solana_user }}"
+  become_method: sudo
   file:
-    path: /tmp/solana
+    path: "{{ solana_home }}/build/agave"
     state: absent
+  when:
+    - agave_checked_out_tag.stdout | length > 0
+    - agave_checked_out_tag.stdout != 'v' ~ solana_version
+
+- name: clone agave at v{{ solana_version }}
+  become: yes
+  become_user: "{{ solana_user }}"
+  become_method: sudo
+  shell: git clone --depth 1 --branch v{{ solana_version }} https://github.com/anza-xyz/agave.git {{ solana_home }}/build/agave
+  args:
+    creates: "{{ solana_home }}/build/agave/Cargo.toml"
+
+- name: build and install agave from source (takes 20-60+ minutes on first run)
+  become: yes
+  become_user: "{{ solana_user }}"
+  become_method: sudo
+  vars:
+    agave_release_dir: "{{ solana_home }}/.local/share/solana/install/releases/{{ solana_version }}/solana-release"
+    agave_build_flags: "{{ '--no-build-validator-bins' if (jito.enabled | default(false) | bool) else '' }}"
+  shell: |
+    set -euo pipefail
+    source {{ solana_home }}/.cargo/env
+    cd {{ solana_home }}/build/agave
+    ./scripts/cargo-install-all.sh {{ agave_build_flags }} {{ agave_release_dir }}
+  args:
+    executable: /bin/bash
+    creates: "{{ agave_release_dir }}/bin/solana"
+
+- name: check active_release symlink
+  stat:
+    path: "{{ solana_home }}/.local/share/solana/install/active_release"
+  register: agave_active_release
+
+# create-only: never re-point an existing symlink — after build-jito.sh runs,
+# active_release belongs to the jito release
+- name: link active_release to the source build
+  become: yes
+  become_user: "{{ solana_user }}"
+  become_method: sudo
+  file:
+    src: "{{ solana_home }}/.local/share/solana/install/releases/{{ solana_version }}/solana-release"
+    dest: "{{ solana_home }}/.local/share/solana/install/active_release"
+    state: link
+  when: not agave_active_release.stat.exists

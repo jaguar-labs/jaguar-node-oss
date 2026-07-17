@@ -141,4 +141,18 @@ rm -rf "$HOME"/.local/share/solana/install/active_release
 
 ln -sf /home/solana/.local/share/solana/install/releases/"$TAG" "$HOME"/.local/share/solana/install/active_release
 
+# Make the jito release CLI-complete: --validator-only does not build the
+# solana CLI / solana-keygen, which the repo's scripts and monitoring need.
+# Copy them from the vanilla source build (node-base) — no-clobber, so
+# jito-built binaries always win. Vanilla version = tag minus v/-jito.
+VANILLA_VERSION="${TAG#v}"
+VANILLA_VERSION="${VANILLA_VERSION%-jito}"
+VANILLA_BIN="$HOME/.local/share/solana/install/releases/${VANILLA_VERSION}/solana-release/bin"
+JITO_BIN="$HOME/.local/share/solana/install/releases/${TAG}/bin"
+if [ -d "$VANILLA_BIN" ]; then
+  find "$VANILLA_BIN" -maxdepth 1 -type f -exec cp -n {} "$JITO_BIN"/ \;
+else
+  echo "WARNING: vanilla release bin $VANILLA_BIN not found; solana CLI tools may be missing from active_release"
+fi
+
 rm -rf "$HOME"/jito-solana
