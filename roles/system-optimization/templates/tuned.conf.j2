@@ -186,6 +186,11 @@ vm.zone_reclaim_mode = 0
 vm.vfs_cache_pressure = 50
 # Reduce the maximum page lock acquisition latency while retaining adequate throughput
 vm.page_lock_unfairness = 1
+{% if xdp is defined and (xdp.enabled | default(false)) %}
+# agave XDP allocates its UMEM from 2MB huge pages; without a reservation it
+# logs "huge page alloc failed" and falls back to 4K pages
+vm.nr_hugepages = {{ xdp.hugepages | default(512) }}
+{% endif %}
 
 # File descriptors
 fs.file-max = 1000000
