@@ -132,12 +132,31 @@ IDENTITY_PUBKEY="$REPLY"
 prompt_valid "Vote account pubkey" "" "$RE_PUBKEY" "must be base58, 32-44 chars"
 VOTE_PUBKEY="$REPLY"
 
-prompt_valid "Ledger disk device" "/dev/nvme0n1" "$RE_DEV" "must look like /dev/..."
-LEDGER_DEV="$REPLY"
-prompt_valid "Accounts disk device" "/dev/nvme1n1" "$RE_DEV" "must look like /dev/..."
-ACCOUNTS_DEV="$REPLY"
-prompt_valid "Snapshots disk device" "/dev/nvme4n1" "$RE_DEV" "must look like /dev/..."
-SNAPSHOTS_DEV="$REPLY"
+while :; do
+  prompt "Disk layout: separate NVMe per ledger/accounts/snapshots, or all on one disk (separate/single)" "separate"
+  case "$REPLY" in separate|single) DISK_LAYOUT="$REPLY"; break ;; *) echo "  Invalid: must be separate or single" ;; esac
+done
+
+if [ "$DISK_LAYOUT" = "separate" ]; then
+  prompt_valid "Ledger disk device" "/dev/nvme0n1" "$RE_DEV" "must look like /dev/..."
+  LEDGER_DEV="$REPLY"
+  prompt_valid "Accounts disk device" "/dev/nvme1n1" "$RE_DEV" "must look like /dev/..."
+  ACCOUNTS_DEV="$REPLY"
+  prompt_valid "Snapshots disk device" "/dev/nvme4n1" "$RE_DEV" "must look like /dev/..."
+  SNAPSHOTS_DEV="$REPLY"
+  LEDGER_PATH="/mnt/solana_ledger/ledger"
+  ACCOUNTS_PATH="/mnt/solana_accounts/accounts"
+  SNAPSHOTS_PATH="/mnt/solana_snapshots/snapshots"
+else
+  prompt_valid "Disk device (holds ledger, accounts and snapshots)" "/dev/nvme0n1" "$RE_DEV" "must look like /dev/..."
+  SINGLE_DEV="$REPLY"
+  LEDGER_PATH="/mnt/solana/ledger"
+  ACCOUNTS_PATH="/mnt/solana/accounts"
+  SNAPSHOTS_PATH="/mnt/solana/snapshots"
+  if [ "$CLUSTER" = "mainnet" ]; then
+    echo "  NOTE: separate NVMe devices for ledger/accounts/snapshots are recommended on mainnet."
+  fi
+fi
 
 prompt_valid "Validator log path" "/mnt/solana/log" "$RE_ABSPATH" "must be an absolute path"
 LOG_PATH="$REPLY"
@@ -195,6 +214,33 @@ yaml_list_block() { # yaml_list_block <space separated items> -> 6-space indente
   printf '%s' "${out%$'\n'}"
 }
 
+DISK_FS_OPTIONS="rw,noatime,nodiratime,discard,attr2,inode64,logbufs=8,logbsize=256k,allocsize=64k"
+
+disk_entry() { # disk_entry <mount_dir> <dev> <subdir> <startup_arg>
+  printf '        - mount_dir: %s\n' "$1"
+  printf '          dev: %s\n' "$2"
+  printf '          fs_type: xfs\n'
+  printf '          options: %s\n' "$DISK_FS_OPTIONS"
+  printf '          subdir: %s\n' "$3"
+  printf '          startup_arg: %s\n' "$4"
+  printf '          force: true\n'
+}
+
+if [ "$DISK_LAYOUT" = "separate" ]; then
+  DISK_MANAGEMENT_DISKS="$(
+    disk_entry /mnt/solana_ledger "$LEDGER_DEV" ledger ledger
+    disk_entry /mnt/solana_accounts "$ACCOUNTS_DEV" accounts accounts
+    disk_entry /mnt/solana_snapshots "$SNAPSHOTS_DEV" snapshots snapshots
+  )"
+else
+  DISK_MANAGEMENT_DISKS="$(
+    printf '        # single-disk layout: entries share one device; the role loop is idempotent\n'
+    disk_entry /mnt/solana "$SINGLE_DEV" ledger ledger
+    disk_entry /mnt/solana "$SINGLE_DEV" accounts accounts
+    disk_entry /mnt/solana "$SINGLE_DEV" snapshots snapshots
+  )"
+fi
+
 ENTRYPOINTS_BLOCK="$(yaml_list_block "$(p entrypoints)")"
 KNOWN_VALIDATORS_BLOCK="$(yaml_list_block "$(p known_validators)")"
 
@@ -203,9 +249,10 @@ awk \
   -v CLUSTER="$CLUSTER" \
   -v IDENTITY_PUBKEY="$IDENTITY_PUBKEY" \
   -v VOTE_PUBKEY="$VOTE_PUBKEY" \
-  -v LEDGER_DEV="$LEDGER_DEV" \
-  -v ACCOUNTS_DEV="$ACCOUNTS_DEV" \
-  -v SNAPSHOTS_DEV="$SNAPSHOTS_DEV" \
+  -v DISK_MANAGEMENT_DISKS="$DISK_MANAGEMENT_DISKS" \
+  -v LEDGER_PATH="$LEDGER_PATH" \
+  -v ACCOUNTS_PATH="$ACCOUNTS_PATH" \
+  -v SNAPSHOTS_PATH="$SNAPSHOTS_PATH" \
   -v LOG_PATH="$LOG_PATH" \
   -v GENESIS_HASH="$(p genesis)" \
   -v REMOTE_RPC="$(p remote_rpc)" \
@@ -232,9 +279,9 @@ awk \
     gsub(/@@CLUSTER@@/, CLUSTER, line)
     gsub(/@@IDENTITY_PUBKEY@@/, IDENTITY_PUBKEY, line)
     gsub(/@@VOTE_PUBKEY@@/, VOTE_PUBKEY, line)
-    gsub(/@@LEDGER_DEV@@/, LEDGER_DEV, line)
-    gsub(/@@ACCOUNTS_DEV@@/, ACCOUNTS_DEV, line)
-    gsub(/@@SNAPSHOTS_DEV@@/, SNAPSHOTS_DEV, line)
+    gsub(/@@LEDGER_PATH@@/, LEDGER_PATH, line)
+    gsub(/@@ACCOUNTS_PATH@@/, ACCOUNTS_PATH, line)
+    gsub(/@@SNAPSHOTS_PATH@@/, SNAPSHOTS_PATH, line)
     gsub(/@@LOG_PATH@@/, LOG_PATH, line)
     gsub(/@@GENESIS_HASH@@/, GENESIS_HASH, line)
     gsub(/@@REMOTE_RPC@@/, REMOTE_RPC, line)
@@ -250,6 +297,7 @@ awk \
     gsub(/@@XDP_ENABLED@@/, XDP_ENABLED, line)
     gsub(/@@XDP_INTERFACE@@/, XDP_INTERFACE, line)
     gsub(/@@XDP_RETRANSMIT_CORES@@/, XDP_RETRANSMIT_CORES, line)
+    if (line == "@@DISK_MANAGEMENT_DISKS@@") { print DISK_MANAGEMENT_DISKS; next }
     if (line == "@@ENTRYPOINTS_BLOCK@@") { print ENTRYPOINTS_BLOCK; next }
     if (line == "@@KNOWN_VALIDATORS_BLOCK@@") { print KNOWN_VALIDATORS_BLOCK; next }
     print line

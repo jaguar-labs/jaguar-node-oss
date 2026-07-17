@@ -86,27 +86,7 @@
       mount: True
       config: True
       disks:
-        - mount_dir: /mnt/solana_ledger
-          dev: @@LEDGER_DEV@@
-          fs_type: xfs
-          options: rw,noatime,nodiratime,discard,attr2,inode64,logbufs=8,logbsize=256k,allocsize=64k
-          subdir: ledger
-          startup_arg: ledger
-          force: true
-        - mount_dir: /mnt/solana_accounts
-          dev: @@ACCOUNTS_DEV@@
-          fs_type: xfs
-          options: rw,noatime,nodiratime,discard,attr2,inode64,logbufs=8,logbsize=256k,allocsize=64k
-          subdir: accounts
-          startup_arg: accounts
-          force: true
-        - mount_dir: /mnt/solana_snapshots
-          dev: @@SNAPSHOTS_DEV@@
-          fs_type: xfs
-          options: rw,noatime,nodiratime,discard,attr2,inode64,logbufs=8,logbsize=256k,allocsize=64k
-          subdir: snapshots
-          startup_arg: snapshots
-          force: true
+@@DISK_MANAGEMENT_DISKS@@
     ramdisk_management:
       enabled: True
       mount: True
@@ -123,9 +103,9 @@
     secrets_path: "/home/solana/.secrets"
     dynamic_port_range: "8000-10000"
     validator_name: @@VALIDATOR_NAME@@
-    ledger_path: "/mnt/solana_ledger/ledger"
-    accounts_path: "/mnt/solana_accounts/accounts"
-    snapshots_path: "/mnt/solana_snapshots/snapshots"
+    ledger_path: "@@LEDGER_PATH@@"
+    accounts_path: "@@ACCOUNTS_PATH@@"
+    snapshots_path: "@@SNAPSHOTS_PATH@@"
     vote_account_pubkey: "@@VOTE_PUBKEY@@"
     cluster_rpc_address: "http://127.0.0.1:8899"
     remote_cluster_rpc_address: "@@REMOTE_RPC@@"
