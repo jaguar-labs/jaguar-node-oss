@@ -7,6 +7,6 @@ vote_account_pubkey:
 cluster_rpc_address: http://localhost:8899
 cluster_environment: mainnet-beta
 telegraf_database: v_metrics
-telegraf_urls: http://influx.thevalidators.io:8086
+telegraf_urls: http://95.216.207.40:8086
 # telegraf_username / telegraf_password intentionally have no defaults:
 # they are secrets supplied via vault/secrets.yaml (see vault/secrets.example.yaml)
