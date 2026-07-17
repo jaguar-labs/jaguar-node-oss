@@ -235,7 +235,30 @@ fi
 
 if prompt_yn "Enable XDP retransmit?" "n"; then
   XDP_ENABLED="true"
-  prompt_valid "XDP NIC interface (bond MEMBER if bonded)" "" "$RE_IFACE" "interface name"
+  # bond awareness: XDP and ring tuning need a physical NIC, never the bond master
+  XDP_DEFAULT_IFACE=""
+  if [ -r /sys/class/net/bonding_masters ]; then
+    read -ra XDP_BONDS < /sys/class/net/bonding_masters
+    for bond in "${XDP_BONDS[@]}"; do
+      members="$(cat "/sys/class/net/$bond/bonding/slaves" 2>/dev/null || true)"
+      active="$(cat "/sys/class/net/$bond/bonding/active_slave" 2>/dev/null || true)"
+      echo "  Bond detected: $bond (members: ${members:-none}${active:+; active: $active})"
+      if [ -z "$XDP_DEFAULT_IFACE" ]; then
+        if [ -n "$active" ]; then XDP_DEFAULT_IFACE="$active"; else XDP_DEFAULT_IFACE="${members%% *}"; fi
+      fi
+    done
+    if [ -n "$XDP_DEFAULT_IFACE" ]; then
+      echo "  XDP must use a physical member, not the bond — proposing $XDP_DEFAULT_IFACE"
+    fi
+  fi
+  while :; do
+    prompt_valid "XDP NIC interface (bond MEMBER if bonded)" "$XDP_DEFAULT_IFACE" "$RE_IFACE" "interface name"
+    if [ -e "/sys/class/net/$REPLY/bonding" ]; then
+      echo "  Invalid: $REPLY is a bond master; use one of its members: $(cat "/sys/class/net/$REPLY/bonding/slaves" 2>/dev/null)"
+      continue
+    fi
+    break
+  done
   XDP_INTERFACE="$REPLY"
   prompt_valid "XDP retransmit CPU cores (comma-separated)" "1" "$RE_CORES" "e.g. 1 or 1,3"
   XDP_RETRANSMIT_CORES="$REPLY"

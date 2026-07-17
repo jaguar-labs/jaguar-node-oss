@@ -29,4 +29,10 @@
 - [x] 5.1 Add `detect_unused_disks()` to the wizard: `lsblk` type=disk devices with a single lsblk line (no partitions/holders), empty FSTYPE; print `path (size)`; silently return nothing when lsblk is absent
 - [x] 5.2 Before the device prompts, show the detected list with a controller-machine caveat and use entries (in order) as the device prompt defaults, falling back to the static defaults when fewer than needed are detected
 - [x] 5.3 Make the round-trip/e2e scripted runs deterministic by passing explicit devices instead of accepting defaults; regenerate sample must stay an empty diff
-- [ ] 5.4 shellcheck + lint clean; commit, push, CI green
+- [x] 5.4 shellcheck + lint clean; commit, push, CI green
+
+## 6. Bond-aware XDP interface prompt (follow-up)
+
+- [ ] 6.1 Detect bonds via /sys/class/net/bonding_masters; display each bond with members and active member; propose active (else first) member as the interface default
+- [ ] 6.2 Reject bond-master input at the prompt (re-prompt listing the bond's members), mirroring the role's fail-fast assert
+- [ ] 6.3 e2e: xdp-enabled run on a bondless machine unchanged; logic review for the bonded path; shellcheck + lint clean; commit, push, CI green

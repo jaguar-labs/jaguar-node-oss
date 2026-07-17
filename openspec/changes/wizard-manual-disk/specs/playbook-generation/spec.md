@@ -45,3 +45,18 @@ Before the device prompts, the wizard SHALL detect unused disks on the machine i
 #### Scenario: No unused disks
 - **WHEN** the wizard runs on a machine whose disks are all partitioned, formatted, or mounted
 - **THEN** no detection listing is shown and the device prompts default to the static values (`/dev/nvme0n1`, `/dev/nvme1n1`, `/dev/nvme4n1`)
+
+### Requirement: XDP interface prompt is bond-aware
+When XDP is enabled, the wizard SHALL detect bonded interfaces on the machine it runs on (via `/sys/class/net/bonding_masters`), display each bond with its members and active member, and propose a physical member (the active member when set, else the first) as the interface prompt default. The prompt SHALL reject a bond master name — entering one re-prompts with the bond's member list — because XDP and NIC ring tuning require a physical NIC. With no bonds present, the prompt behaves as before (no default).
+
+#### Scenario: Bonded host proposes a member
+- **WHEN** the wizard runs on a host with `bond0` over `enp67s0f0`/`enp67s0f1` and XDP is enabled
+- **THEN** the bond and its members are displayed and the interface prompt defaults to a physical member, never `bond0`
+
+#### Scenario: Bond master rejected
+- **WHEN** the operator types a bond master name (e.g. `bond0`) at the interface prompt
+- **THEN** the wizard re-prompts, listing the bond's members to choose from
+
+#### Scenario: No bond present
+- **WHEN** the machine has no bonded interfaces
+- **THEN** no bond listing is shown and the interface prompt has no pre-filled default
