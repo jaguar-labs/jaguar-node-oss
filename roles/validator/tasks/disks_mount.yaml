@@ -24,7 +24,7 @@
     force: "{{ item.item.force | default(false) }}"
   loop: "{{ disk_current_fstype.results }}"
   loop_control:
-    label: "{{ item.item.dev }} ({{ item.stdout or 'none' }} -> {{ item.item.fs_type }})"
+    label: "{{ item.item.dev }} ({{ item.stdout | default('skipped') }} -> {{ item.item.fs_type }})"
   when:
     - disk_management.mount
     - item.stdout != item.item.fs_type
