@@ -35,4 +35,4 @@
 
 - [ ] 6.1 Detect bonds via /sys/class/net/bonding_masters; display each bond with members and active member; propose active (else first) member as the interface default
 - [ ] 6.2 Reject bond-master input at the prompt (re-prompt listing the bond's members), mirroring the role's fail-fast assert
-- [ ] 6.3 e2e: xdp-enabled run on a bondless machine unchanged; logic review for the bonded path; shellcheck + lint clean; commit, push, CI green
+- [x] 6.3 e2e: xdp-enabled run on a bondless machine unchanged; logic review for the bonded path; shellcheck + lint clean; commit, push, CI green
