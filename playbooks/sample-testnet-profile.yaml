@@ -112,8 +112,8 @@
           options: nodev,nosuid,noexec,nodiratime,size=120G
           subdir: accounts_index
           startup_arg: accounts-index-path
-    solana_version: "4.0.0"
-    watch_tower_version: "4.0.0"
+    solana_version: "4.1.0-beta.3"
+    watch_tower_version: "4.1.0-beta.3"
     solana_user: solana
     solana_home: "/home/solana"
     secrets_path: "/home/solana/.secrets"
