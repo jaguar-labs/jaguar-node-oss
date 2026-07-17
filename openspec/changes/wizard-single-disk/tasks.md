@@ -21,4 +21,4 @@
 - [x] 4.1 Regenerate `playbooks/sample-testnet-profile.yaml` (separate layout, same inputs as before) and require an empty git diff — proves the template refactor is output-neutral
 - [x] 4.2 Scripted e2e: single-layout testnet run — assert the generated playbook parses, the three disks entries share `/mnt/solana` + device, paths point under `/mnt/solana/`, and no `@@` tokens remain
 - [x] 4.3 Scripted e2e: layout prompt validation (invalid value re-prompts), and separate layout with custom devices still lands them in the right entries
-- [ ] 4.4 shellcheck clean; yamllint + pinned ansible-lint clean; commit and push; confirm CI green
+- [x] 4.4 shellcheck clean; yamllint + pinned ansible-lint clean; commit and push; confirm CI green
