@@ -21,6 +21,8 @@ ansible-galaxy collection install -r requirements.yml
 bin/new-playbook.sh          # refuses to overwrite an existing profile; use --force to regenerate
 ```
 The canonical profile source is `playbooks/templates/profile.yaml.tmpl` — `playbooks/sample-testnet-profile.yaml` is generated from it. If `vault/secrets.yaml` is missing, the wizard offers to create it (secret values prompted with hidden input and encrypted immediately; step 5 below covers the manual route).
+
+The disk layout prompt offers three modes: `separate` (one NVMe each for ledger/accounts/snapshots — formatted and mounted by the playbook), `single` (everything on one disk), and `manual` (you format and mount the disk(s) yourself). In manual mode the generated playbook sets `disk_management.mount: False, config: True` — the role never touches your filesystems but still creates the ledger/accounts/snapshots subdirs with `solana` ownership — and the wizard prints the exact `mkfs`/`mount`/fstab commands for your devices, also saving them to `playbooks/disk-setup-<name>.sh` (gitignored; regenerate by re-running the wizard). The script is a dry run unless invoked with `--yes`, and its `mkfs.xfs` has no `-f`, so an already-formatted disk fails loudly instead of being wiped.
 5. Create your secrets vault. Secrets (telegraf credentials, PagerDuty key, Solana metrics credential) are never stored in plaintext in this repo — they live in an Ansible Vault encrypted file:
 ```bash
 cp vault/secrets.example.yaml vault/secrets.yaml
