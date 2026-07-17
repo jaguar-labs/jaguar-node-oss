@@ -6,7 +6,7 @@ TBD - created by syncing change `modernize-safety`. Governs how secret values co
 ## Requirements
 
 ### Requirement: Secrets are stored only in an encrypted vault file
-All secret values consumed by playbooks — `telegraf_username`, `telegraf_password`, `pager_duty_key`, and the write credential embedded in `solana_metrics_url` — SHALL live in an Ansible Vault encrypted file (`vault/secrets.yaml`) loaded via `vars_files`. No secret value SHALL appear in plaintext in any git-tracked file.
+All secret values consumed by playbooks — `telegraf_username`, `telegraf_password`, and `pager_duty_key` — SHALL live in an Ansible Vault encrypted file (`vault/secrets.yaml`) loaded via `vars_files`. No private secret value SHALL appear in plaintext in any git-tracked file. The `solana_metrics_user`/`solana_metrics_password` values are the public per-cluster write credentials published in the Anza docs: they load from the same vault file for uniformity, but MAY appear in plaintext in `vault/secrets.example.yaml` as pre-filled defaults.
 
 #### Scenario: Playbook run with vault
 - **WHEN** the operator runs the playbook with `--ask-vault-pass` or `--vault-password-file`
@@ -17,8 +17,8 @@ All secret values consumed by playbooks — `telegraf_username`, `telegraf_passw
 - **THEN** Ansible fails before executing any role tasks, with an error indicating the vault file could not be decrypted
 
 #### Scenario: Grep for secrets in tracked files
-- **WHEN** git-tracked files are searched for the telegraf password, PagerDuty key, or metrics URL credential
-- **THEN** no plaintext secret value is found (the previously committed metrics write credential `u=testnet_write,p=...` is removed and treated as compromised)
+- **WHEN** git-tracked files are searched for the telegraf password or PagerDuty key
+- **THEN** no plaintext private secret value is found (the public Anza metrics write credentials in `vault/secrets.example.yaml` are exempt — they are documentation values, not secrets)
 
 ### Requirement: A committed example file documents the vault contract
 The repository SHALL contain a plaintext `vault/secrets.example.yaml` listing every expected secret key with placeholder values, and a `.gitignore` rule SHALL exclude unencrypted local secrets files (e.g. `vault/secrets.plain*.yaml`).

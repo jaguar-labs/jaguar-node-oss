@@ -33,4 +33,4 @@ ansible-playbook playbooks/sample-testnet-profile.yaml -i inventory -e host=loca
 ```
 Use `--vault-password-file <path>` instead of `--ask-vault-pass` for unattended runs (keep the password file outside the repo; `*.vault-pass*` is gitignored).
 
-> **_SECURITY NOTE:_** Earlier revisions of this repository committed a Solana metrics write credential (`solana_metrics_url`) and a telegraf password in plaintext. Treat those values as compromised: rotate the metrics write credential and the telegraf password before reusing this automation. The values now live only in your encrypted vault.
+> **_SECURITY NOTE:_** Earlier revisions of this repository committed a telegraf password in plaintext — rotate it before reusing this automation. The `solana_metrics_*` values are the public per-cluster write credentials from the Anza docs (defaults are pre-filled in the example); the private secrets you must set are the telegraf credentials and your PagerDuty key.
