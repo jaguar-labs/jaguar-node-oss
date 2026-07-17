@@ -137,6 +137,39 @@ while :; do
   case "$REPLY" in separate|single|manual) DISK_LAYOUT="$REPLY"; break ;; *) echo "  Invalid: must be separate, single or manual" ;; esac
 done
 
+detect_unused_disks() { # prints "path size" per bare disk: no partitions/holders, no fs, unmounted
+  command -v lsblk >/dev/null 2>&1 || return 0
+  local dev size
+  while read -r dev size; do
+    [ "$(lsblk -n "$dev" 2>/dev/null | wc -l)" -eq 1 ] || continue
+    [ -z "$(lsblk -dn -o FSTYPE "$dev" 2>/dev/null | tr -d '[:space:]')" ] || continue
+    printf '%s %s\n' "$dev" "$size"
+  done < <(lsblk -dn -p -o NAME,SIZE,TYPE 2>/dev/null | awk '$3=="disk"{print $1, $2}')
+}
+
+UNUSED_DISKS=()
+UNUSED_SIZES=()
+while read -r dev size; do
+  [ -n "$dev" ] || continue
+  UNUSED_DISKS+=("$dev")
+  UNUSED_SIZES+=("$size")
+done < <(detect_unused_disks)
+
+if [ "${#UNUSED_DISKS[@]}" -gt 0 ]; then
+  echo
+  echo "Unused disks detected on this machine (no partitions, no filesystem, unmounted):"
+  for i in "${!UNUSED_DISKS[@]}"; do
+    echo "  ${UNUSED_DISKS[$i]} (${UNUSED_SIZES[$i]})"
+  done
+  echo "  (Detection runs where the wizard runs — ignore this list when preparing a playbook for another host.)"
+  echo
+fi
+
+# device prompt defaults: detected unused disks in order, else static fallbacks
+DEFAULT_DEV1="${UNUSED_DISKS[0]:-/dev/nvme0n1}"
+DEFAULT_DEV2="${UNUSED_DISKS[1]:-/dev/nvme1n1}"
+DEFAULT_DEV3="${UNUSED_DISKS[2]:-/dev/nvme4n1}"
+
 DISK_MOUNT="True"
 DISK_CONFIG="True"
 DISK_SHAPE="$DISK_LAYOUT"
@@ -150,17 +183,17 @@ if [ "$DISK_LAYOUT" = "manual" ]; then
 fi
 
 if [ "$DISK_SHAPE" = "separate" ]; then
-  prompt_valid "Ledger disk device" "/dev/nvme0n1" "$RE_DEV" "must look like /dev/..."
+  prompt_valid "Ledger disk device" "$DEFAULT_DEV1" "$RE_DEV" "must look like /dev/..."
   LEDGER_DEV="$REPLY"
-  prompt_valid "Accounts disk device" "/dev/nvme1n1" "$RE_DEV" "must look like /dev/..."
+  prompt_valid "Accounts disk device" "$DEFAULT_DEV2" "$RE_DEV" "must look like /dev/..."
   ACCOUNTS_DEV="$REPLY"
-  prompt_valid "Snapshots disk device" "/dev/nvme4n1" "$RE_DEV" "must look like /dev/..."
+  prompt_valid "Snapshots disk device" "$DEFAULT_DEV3" "$RE_DEV" "must look like /dev/..."
   SNAPSHOTS_DEV="$REPLY"
   LEDGER_PATH="/mnt/solana_ledger/ledger"
   ACCOUNTS_PATH="/mnt/solana_accounts/accounts"
   SNAPSHOTS_PATH="/mnt/solana_snapshots/snapshots"
 else
-  prompt_valid "Disk device (holds ledger, accounts and snapshots)" "/dev/nvme0n1" "$RE_DEV" "must look like /dev/..."
+  prompt_valid "Disk device (holds ledger, accounts and snapshots)" "$DEFAULT_DEV1" "$RE_DEV" "must look like /dev/..."
   SINGLE_DEV="$REPLY"
   LEDGER_PATH="/mnt/solana/ledger"
   ACCOUNTS_PATH="/mnt/solana/accounts"

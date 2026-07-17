@@ -34,3 +34,14 @@ In `manual` mode the wizard SHALL print the disk preparation commands — `mkfs.
 #### Scenario: Destructive-command guard
 - **WHEN** the operator runs `disk-setup-<name>.sh` without `--yes`
 - **THEN** the script prints the commands it would run and exits non-zero without executing any of them
+
+### Requirement: Device prompts propose detected unused disks
+Before the device prompts, the wizard SHALL detect unused disks on the machine it runs on — block devices of type `disk` with no partitions, no filesystem signature, and nothing mounted — list them with sizes, and use them (in order) as the proposed defaults for the device prompts. When none are detected (or `lsblk` is unavailable), the prompts SHALL fall back to the static defaults. The listing SHALL note that detection reflects the wizard's machine and should be ignored when preparing a playbook for a different host.
+
+#### Scenario: Unused disks present
+- **WHEN** the wizard runs on a host with bare NVMe devices (no partitions, no filesystem, unmounted)
+- **THEN** those devices are listed with their sizes and pre-filled as the device prompt defaults, in detection order
+
+#### Scenario: No unused disks
+- **WHEN** the wizard runs on a machine whose disks are all partitioned, formatted, or mounted
+- **THEN** no detection listing is shown and the device prompts default to the static values (`/dev/nvme0n1`, `/dev/nvme1n1`, `/dev/nvme4n1`)

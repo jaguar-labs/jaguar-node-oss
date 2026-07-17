@@ -23,3 +23,10 @@
 - [x] 4.2 Scripted e2e, manual single: playbook parses with `mount: False, config: True`, shared-device entries, `/mnt/solana/*` paths; `disk-setup-<name>.sh` exists, contains the same device/mount-dir/options values as the playbook, and running it without `--yes` prints commands and exits non-zero (safe to execute on the dev box — the guard means nothing runs)
 - [x] 4.3 Scripted e2e, manual separate + invalid layout value re-prompt; automated single/separate outputs byte-identical to pre-change (compare against a pre-change generation)
 - [x] 4.4 shellcheck on `bin/new-playbook.sh` and on a generated `disk-setup-*.sh` specimen; yamllint + pinned ansible-lint clean; commit, push, CI green
+
+## 5. Unused-disk detection (follow-up)
+
+- [x] 5.1 Add `detect_unused_disks()` to the wizard: `lsblk` type=disk devices with a single lsblk line (no partitions/holders), empty FSTYPE; print `path (size)`; silently return nothing when lsblk is absent
+- [x] 5.2 Before the device prompts, show the detected list with a controller-machine caveat and use entries (in order) as the device prompt defaults, falling back to the static defaults when fewer than needed are detected
+- [x] 5.3 Make the round-trip/e2e scripted runs deterministic by passing explicit devices instead of accepting defaults; regenerate sample must stay an empty diff
+- [ ] 5.4 shellcheck + lint clean; commit, push, CI green
