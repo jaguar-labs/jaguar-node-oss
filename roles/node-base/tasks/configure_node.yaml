@@ -1,4 +1,19 @@
 ---
+- name: Check solana CLI is present in env_path
+  stat:
+    path: "{{ env_path }}/solana"
+  register: solana_cli_bin
+
+- name: Assert solana CLI is available
+  assert:
+    that:
+      - solana_cli_bin.stat.exists
+    fail_msg: >-
+      {{ env_path }}/solana not found. If active_release points at a jito
+      release built with --validator-only, copy the CLI tools in (re-run
+      build-jito.sh, or cp -n from a releases/<version>/solana-release/bin),
+      or re-run the playbook so node-base builds the CLI from source.
+
 - name: Check if validator_keypair.json exists
   stat:
     path: "{{ secrets_path }}/funded-validator-keypair.json"
