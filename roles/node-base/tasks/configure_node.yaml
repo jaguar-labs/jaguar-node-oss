@@ -14,6 +14,18 @@
       build-jito.sh, or cp -n from a releases/<version>/solana-release/bin),
       or re-run the playbook so node-base builds the CLI from source.
 
+# the CDN installer used to add this to .profile as a side effect; neither the
+# source build nor manual tarball installs do, so ensure it on every run
+- name: Ensure active_release bin is on the solana user PATH
+  become: yes
+  lineinfile:
+    path: "{{ solana_home }}/.profile"
+    line: 'export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"'
+    create: yes
+    owner: "{{ solana_user }}"
+    group: "{{ solana_user }}"
+    mode: '0644'
+
 - name: Check if validator_keypair.json exists
   stat:
     path: "{{ secrets_path }}/funded-validator-keypair.json"
