@@ -5,6 +5,21 @@
     name: ethtool
     state: present
 
+- name: XDP | Check whether the interface is a bond master
+  stat:
+    path: "/sys/class/net/{{ xdp.interface }}/bonding"
+  register: xdp_iface_bonding
+
+- name: XDP | Assert interface is a physical NIC, not a bond
+  assert:
+    that:
+      - not xdp_iface_bonding.stat.exists
+    fail_msg: >-
+      xdp.interface ({{ xdp.interface }}) is a bond master; ethtool ring/queue
+      tuning and XDP need a physical member NIC. Pick one from
+      /sys/class/net/{{ xdp.interface }}/bonding/slaves and set xdp.interface
+      to it.
+
 - name: XDP | Read NIC driver info
   command: "ethtool -i {{ xdp.interface }}"
   register: xdp_nic_driver_raw
