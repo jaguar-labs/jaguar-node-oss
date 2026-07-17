@@ -1,3 +1,7 @@
+# CANONICAL PROFILE TEMPLATE — consumed by bin/new-playbook.sh, which replaces
+# every @@TOKEN@@ and writes playbooks/<name>-<cluster>-profile.yaml.
+# playbooks/sample-testnet-profile.yaml is generated from this file; edit here,
+# then regenerate the sample (see README "Create a new validator profile").
 ---
 - hosts: all
   become: yes
@@ -83,21 +87,21 @@
       config: True
       disks:
         - mount_dir: /mnt/solana_ledger
-          dev: /dev/nvme0n1
+          dev: @@LEDGER_DEV@@
           fs_type: xfs
           options: rw,noatime,nodiratime,discard,attr2,inode64,logbufs=8,logbsize=256k,allocsize=64k
           subdir: ledger
           startup_arg: ledger
           force: true
         - mount_dir: /mnt/solana_accounts
-          dev: /dev/nvme1n1
+          dev: @@ACCOUNTS_DEV@@
           fs_type: xfs
           options: rw,noatime,nodiratime,discard,attr2,inode64,logbufs=8,logbsize=256k,allocsize=64k
           subdir: accounts
           startup_arg: accounts
           force: true
         - mount_dir: /mnt/solana_snapshots
-          dev: /dev/nvme4n1
+          dev: @@SNAPSHOTS_DEV@@
           fs_type: xfs
           options: rw,noatime,nodiratime,discard,attr2,inode64,logbufs=8,logbsize=256k,allocsize=64k
           subdir: snapshots
@@ -118,50 +122,44 @@
     solana_home: "/home/solana"
     secrets_path: "/home/solana/.secrets"
     dynamic_port_range: "8000-10000"
-    validator_name: sample
+    validator_name: @@VALIDATOR_NAME@@
     ledger_path: "/mnt/solana_ledger/ledger"
     accounts_path: "/mnt/solana_accounts/accounts"
     snapshots_path: "/mnt/solana_snapshots/snapshots"
-    vote_account_pubkey: "AumWK3q6Wj8cFyREQaycsoXTHM1FpLPCcghSnyKLXMPP"
+    vote_account_pubkey: "@@VOTE_PUBKEY@@"
     cluster_rpc_address: "http://127.0.0.1:8899"
-    remote_cluster_rpc_address: "https://api.testnet.solana.com"
-    cluster_environment: "testnet"
+    remote_cluster_rpc_address: "@@REMOTE_RPC@@"
+    cluster_environment: "@@CLUSTER@@"
     telegraf_database: v_metrics
     telegraf_urls: http://influx.thevalidators.io:8086
     env_path: "/home/solana/.local/share/solana/install/active_release/bin"
-    validator_log_path: "/mnt/solana/log"
+    validator_log_path: "@@LOG_PATH@@"
     rpc_port: 8899
     rpc_bind_address: "127.0.0.1"
-    expected_genesis_hash: "4uhcVJyU9pJkvQyS88uRDiswHXSCkY3zQawwpjk2NsNY"
-    solana_metrics_url: "https://metrics.solana.com:8086,db=tds,u={{ solana_metrics_user }},p={{ solana_metrics_password }}"
-    validator_identity_pubkey: "AumWK3q6Wj8cFyREQaycsoXTHM1FpLPCcghSnyKLXMPP"
+    expected_genesis_hash: "@@GENESIS_HASH@@"
+    solana_metrics_url: "https://metrics.solana.com:8086,db=@@METRICS_DB@@,u={{ solana_metrics_user }},p={{ solana_metrics_password }}"
+    validator_identity_pubkey: "@@IDENTITY_PUBKEY@@"
     mostly_confirmed_threshold: 0.45 4 0 24
     # staked nodes overrides
     staked_map_id:
       AumWK3q6Wj8cFyREQaycsoXTHM1FpLPCcghSnyKLXMPP: 100000000000000000
     known_validators:
-      - 5D1fNXzvv5NjV1ysLjirC4WY92RNsVH18vjmcszZd8on
-      - dDzy5SR3AXdYWVqbDEkVFdvSPCtS9ihF5kJkHCtXoFs
-      - Ft5fbkqNa76vnsjYNwjDZUXoTWpP7VYm3mtsaQckQADN
-      - eoKpUABi59aT4rR9HGS3LcMecfut9x7zJyodWWP43YQ
-      - 9QxCLckBiJc783jnMvXZubK4wH86Eqqvashtrwvcsgkv
+@@KNOWN_VALIDATORS_BLOCK@@
     entrypoints:
-      - entrypoint.testnet.solana.com:8001
-      - entrypoint2.testnet.solana.com:8001
-      - entrypoint3.testnet.solana.com:8001
+@@ENTRYPOINTS_BLOCK@@
     jito:
-      enabled: True
-      tip_payment_program_pubkey: "GJHtFqM9agxPmkeKjHny6qiRKrXZALvvFGiKf11QE7hy"
-      tip_distribution_program_pubkey: "DzvGET57TAgEDxvm3ERUM4GNcsAJdqjDLCne9sdfY4wf"
-      merkle_root_upload_authority: "7T4inmPmtNBX3MhLwJ9hFsSMnGJYYkKioVABSNTWVRuS"
-      commission_bps: 0
-      block_engine_url: "https://ny.testnet.block-engine.jito.wtf"
-      shred_receiver_address: "64.130.35.224:1002"
-      ntp: "ntp.dallas.jito.wtf"
+      enabled: @@JITO_ENABLED@@
+      tip_payment_program_pubkey: "@@JITO_TIP_PAYMENT@@"
+      tip_distribution_program_pubkey: "@@JITO_TIP_DISTRIBUTION@@"
+      merkle_root_upload_authority: "@@JITO_MERKLE_AUTH@@"
+      commission_bps: @@JITO_COMMISSION_BPS@@
+      block_engine_url: "@@JITO_BLOCK_ENGINE_URL@@"
+      shred_receiver_address: "@@JITO_SHRED_RECEIVER@@"
+      ntp: "@@JITO_NTP@@"
     xdp:
-      enabled: false
-      interface: ""      # must be a bond MEMBER if bonded
-      retransmit_cpu_cores: "1"  # comma-separated; must not contain poh_pinned_cpu_core
+      enabled: @@XDP_ENABLED@@
+      interface: "@@XDP_INTERFACE@@"      # must be a bond MEMBER if bonded
+      retransmit_cpu_cores: "@@XDP_RETRANSMIT_CORES@@"  # comma-separated; must not contain poh_pinned_cpu_core
       zero_copy: true                # set false on bnxt_en NIC drivers
       ring_rx: 512
       ring_tx: 512

@@ -16,13 +16,18 @@ sudo apt install ansible
 ```bash
 ansible-galaxy collection install -r requirements.yml
 ```
-4. Create your secrets vault. Secrets (telegraf credentials, PagerDuty key, Solana metrics credential) are never stored in plaintext in this repo — they live in an Ansible Vault encrypted file:
+4. Create a validator profile with the wizard. It prompts for ~10 validator-specific values (name, cluster, pubkeys, disk devices, log path, Jito/XDP toggles), auto-fills cluster presets (entrypoints, known validators, genesis hash, Jito endpoints), and writes `playbooks/<name>-<cluster>-profile.yaml`:
+```bash
+bin/new-playbook.sh          # refuses to overwrite an existing profile; use --force to regenerate
+```
+The canonical profile source is `playbooks/templates/profile.yaml.tmpl` — `playbooks/sample-testnet-profile.yaml` is generated from it. If `vault/secrets.yaml` is missing, the wizard offers to create it (secret values prompted with hidden input and encrypted immediately; step 5 below covers the manual route).
+5. Create your secrets vault. Secrets (telegraf credentials, PagerDuty key, Solana metrics credential) are never stored in plaintext in this repo — they live in an Ansible Vault encrypted file:
 ```bash
 cp vault/secrets.example.yaml vault/secrets.yaml
 # edit vault/secrets.yaml and fill in real values
 ansible-vault encrypt vault/secrets.yaml
 ```
-5. Edit and Run the following command to install the full validator profile
+6. Edit and Run the following command to install the full validator profile
 ```bash
 ansible-playbook playbooks/sample-testnet-profile.yaml -i inventory -e host=local --connection=local --ask-vault-pass
 ```

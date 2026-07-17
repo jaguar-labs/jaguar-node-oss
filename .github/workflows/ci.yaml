@@ -18,6 +18,13 @@ jobs:
       - name: Run yamllint
         run: yamllint .
 
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run shellcheck on repo scripts
+        run: shellcheck bin/*.sh
+
   ansible-lint:
     runs-on: ubuntu-latest
     steps:
