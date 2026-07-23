@@ -16,6 +16,14 @@
     group: "{{ solana_user }}"
   when: jito.enabled
 
+- name: Create solana CLI build script
+  copy:
+    src: build-solana-cli.sh
+    dest: "{{ solana_home }}/build-solana-cli.sh"
+    mode: 0755
+    owner: "{{ solana_user }}"
+    group: "{{ solana_user }}"
+
 - name: Remove legacy pin-poh.sh (superseded by --experimental-poh-pinned-cpu-core)
   file:
     path: "{{ solana_home }}/pin-poh.sh"

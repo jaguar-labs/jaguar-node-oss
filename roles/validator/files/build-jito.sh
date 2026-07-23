@@ -141,39 +141,9 @@ rm -rf "$HOME"/.local/share/solana/install/active_release
 
 ln -sf /home/solana/.local/share/solana/install/releases/"$TAG" "$HOME"/.local/share/solana/install/active_release
 
-# Make the jito release CLI-complete: --validator-only does not build the
-# solana CLI / solana-keygen, which the repo's scripts and monitoring need.
-# Copy them from a vanilla release (node-base source build or manual tarball
-# install) — no-clobber, so jito-built binaries always win. Prefer the exact
-# matching version (tag minus v/-jito); otherwise fall back to the newest
-# vanilla release present.
-VANILLA_VERSION="${TAG#v}"
-VANILLA_VERSION="${VANILLA_VERSION%-jito}"
-RELEASES_DIR="$HOME/.local/share/solana/install/releases"
-EXACT_BIN="$RELEASES_DIR/${VANILLA_VERSION}/solana-release/bin"
-JITO_BIN="$RELEASES_DIR/${TAG}/bin"
-
-VANILLA_BIN=""
-if [ -x "$EXACT_BIN/solana" ]; then
-  VANILLA_BIN="$EXACT_BIN"
-else
-  while IFS= read -r candidate; do
-    if [ -x "$candidate/solana" ]; then
-      VANILLA_BIN="$candidate"
-      break
-    fi
-  done < <(find "$RELEASES_DIR" -maxdepth 3 -path '*/solana-release/bin' -type d -printf '%T@ %p\n' 2>/dev/null | sort -rn | cut -d' ' -f2-)
-fi
-
-if [ -n "$VANILLA_BIN" ]; then
-  if [ "$VANILLA_BIN" != "$EXACT_BIN" ]; then
-    echo "NOTE: no vanilla release ${VANILLA_VERSION} found; copying CLI tools from ${VANILLA_BIN} (CLI version differs from the validator — run the playbook to build matching CLI tools)"
-  fi
-  find "$VANILLA_BIN" -maxdepth 1 -type f -exec cp -n {} "$JITO_BIN"/ \;
-elif [ ! -x "$JITO_BIN/solana" ]; then
-  echo "WARNING: no vanilla release with CLI tools found under $RELEASES_DIR."
-  echo "         solana / solana-keygen will be missing from active_release."
-  echo "         Run the playbook (node-base builds the CLI) and re-run this script."
+if [ ! -x "$HOME/.local/share/solana/install/releases/$TAG/bin/solana" ]; then
+  echo "NOTE: the jito --validator-only build has no solana CLI tools."
+  echo "      Run ~/build-solana-cli.sh to build and install them alongside the validator."
 fi
 
 rm -rf "$HOME"/jito-solana
