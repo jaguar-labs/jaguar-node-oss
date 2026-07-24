@@ -132,12 +132,14 @@ IDENTITY_PUBKEY="$REPLY"
 prompt_valid "Vote account pubkey" "" "$RE_PUBKEY" "must be base58, 32-44 chars"
 VOTE_PUBKEY="$REPLY"
 
-while :; do
-  prompt "Disk layout: separate NVMe per ledger/accounts/snapshots, all on one disk, or manually prepared disks (separate/single/manual)" "separate"
-  case "$REPLY" in separate|single|manual) DISK_LAYOUT="$REPLY"; break ;; *) echo "  Invalid: must be separate, single or manual" ;; esac
-done
-
+# ---------------------------------------------------------------- disk configuration
 detect_unused_disks() { # prints "path size" per bare disk: no partitions/holders, no fs, unmounted
+  if [ -n "${NEW_PLAYBOOK_FAKE_UNUSED_DISKS:-}" ]; then
+    # test-only hook: space-separated "dev:size" pairs simulate detections
+    local pair
+    for pair in $NEW_PLAYBOOK_FAKE_UNUSED_DISKS; do printf '%s %s\n' "${pair%%:*}" "${pair#*:}"; done
+    return 0
+  fi
   command -v lsblk >/dev/null 2>&1 || return 0
   local dev size
   while read -r dev size; do
@@ -170,38 +172,104 @@ DEFAULT_DEV1="${UNUSED_DISKS[0]:-/dev/nvme0n1}"
 DEFAULT_DEV2="${UNUSED_DISKS[1]:-/dev/nvme1n1}"
 DEFAULT_DEV3="${UNUSED_DISKS[2]:-/dev/nvme4n1}"
 
+# role→disk map: which device carries each role; every generation path fills it
+ROLES="ledger accounts snapshots"
+ROLE_DISK_ledger=""
+ROLE_DISK_accounts=""
+ROLE_DISK_snapshots=""
+
+mount_dir_for_disk() { # <dev> -> mount dir derived from the role set on that device
+  local roles="" r v
+  for r in $ROLES; do
+    v="ROLE_DISK_$r"
+    [ "${!v}" = "$1" ] && roles+="${roles:+_}$r"
+  done
+  if [ "$roles" = "ledger_accounts_snapshots" ]; then
+    printf '/mnt/solana'
+  else
+    printf '/mnt/solana_%s' "$roles"
+  fi
+}
+
 DISK_MOUNT="True"
 DISK_CONFIG="True"
-DISK_SHAPE="$DISK_LAYOUT"
-if [ "$DISK_LAYOUT" = "manual" ]; then
-  # operator formats/mounts themselves; the role only creates subdirs
-  DISK_MOUNT="False"
-  while :; do
-    prompt "Manual shape: one disk for everything, or one per ledger/accounts/snapshots (single/separate)" "single"
-    case "$REPLY" in separate|single) DISK_SHAPE="$REPLY"; break ;; *) echo "  Invalid: must be single or separate" ;; esac
-  done
-fi
+MANUAL_SETUP=0
 
-if [ "$DISK_SHAPE" = "separate" ]; then
-  prompt_valid "Ledger disk device" "$DEFAULT_DEV1" "$RE_DEV" "must look like /dev/..."
-  LEDGER_DEV="$REPLY"
-  prompt_valid "Accounts disk device" "$DEFAULT_DEV2" "$RE_DEV" "must look like /dev/..."
-  ACCOUNTS_DEV="$REPLY"
-  prompt_valid "Snapshots disk device" "$DEFAULT_DEV3" "$RE_DEV" "must look like /dev/..."
-  SNAPSHOTS_DEV="$REPLY"
-  LEDGER_PATH="/mnt/solana_ledger/ledger"
-  ACCOUNTS_PATH="/mnt/solana_accounts/accounts"
-  SNAPSHOTS_PATH="/mnt/solana_snapshots/snapshots"
+if [ "${#UNUSED_DISKS[@]}" -gt 0 ] && prompt_yn "Configure the detected disks interactively (assign roles per disk)?" "y"; then
+  # -------- assignment flow: one question per detected disk
+  while :; do
+    ROLE_DISK_ledger=""
+    ROLE_DISK_accounts=""
+    ROLE_DISK_snapshots=""
+    for i in "${!UNUSED_DISKS[@]}"; do
+      dev="${UNUSED_DISKS[$i]}"
+      def="skip"; [ "$i" -eq 0 ] && def="all"
+      while :; do
+        prompt "Use ${dev} (${UNUSED_SIZES[$i]}) for (ledger/accounts/snapshots comma-separated, all, skip)" "$def"
+        ans="${REPLY,,}"; ans="${ans// /}"
+        [ "$ans" = "skip" ] && break
+        [ "$ans" = "all" ] && ans="ledger,accounts,snapshots"
+        ok=1
+        IFS=',' read -ra toks <<<"$ans"
+        for t in "${toks[@]}"; do
+          case "$t" in
+            ledger|accounts|snapshots)
+              v="ROLE_DISK_$t"
+              if [ -n "${!v}" ]; then echo "  Invalid: $t is already assigned to ${!v}"; ok=0; fi ;;
+            *) echo "  Invalid token '$t' (use ledger/accounts/snapshots, all, or skip)"; ok=0 ;;
+          esac
+        done
+        [ "$ok" -eq 1 ] || continue
+        for t in "${toks[@]}"; do printf -v "ROLE_DISK_$t" '%s' "$dev"; done
+        break
+      done
+    done
+    missing=""
+    for r in $ROLES; do v="ROLE_DISK_$r"; [ -z "${!v}" ] && missing+=" $r"; done
+    [ -z "$missing" ] && break
+    echo "  Unassigned role(s):$missing — every role needs a disk; restarting assignment."
+  done
+  if ! prompt_yn "Format and mount the assigned disks via the playbook? (n = you prepare them manually)" "y"; then
+    DISK_MOUNT="False"
+    MANUAL_SETUP=1
+  fi
 else
-  prompt_valid "Disk device (holds ledger, accounts and snapshots)" "$DEFAULT_DEV1" "$RE_DEV" "must look like /dev/..."
-  SINGLE_DEV="$REPLY"
-  LEDGER_PATH="/mnt/solana/ledger"
-  ACCOUNTS_PATH="/mnt/solana/accounts"
-  SNAPSHOTS_PATH="/mnt/solana/snapshots"
-  if [ "$CLUSTER" = "mainnet" ]; then
-    echo "  NOTE: separate NVMe devices for ledger/accounts/snapshots are recommended on mainnet."
+  # -------- classic layout flow
+  while :; do
+    prompt "Disk layout: separate NVMe per ledger/accounts/snapshots, all on one disk, or manually prepared disks (separate/single/manual)" "separate"
+    case "$REPLY" in separate|single|manual) DISK_LAYOUT="$REPLY"; break ;; *) echo "  Invalid: must be separate, single or manual" ;; esac
+  done
+  DISK_SHAPE="$DISK_LAYOUT"
+  if [ "$DISK_LAYOUT" = "manual" ]; then
+    # operator formats/mounts themselves; the role only creates subdirs
+    DISK_MOUNT="False"
+    MANUAL_SETUP=1
+    while :; do
+      prompt "Manual shape: one disk for everything, or one per ledger/accounts/snapshots (single/separate)" "single"
+      case "$REPLY" in separate|single) DISK_SHAPE="$REPLY"; break ;; *) echo "  Invalid: must be single or separate" ;; esac
+    done
+  fi
+  if [ "$DISK_SHAPE" = "separate" ]; then
+    prompt_valid "Ledger disk device" "$DEFAULT_DEV1" "$RE_DEV" "must look like /dev/..."
+    ROLE_DISK_ledger="$REPLY"
+    prompt_valid "Accounts disk device" "$DEFAULT_DEV2" "$RE_DEV" "must look like /dev/..."
+    ROLE_DISK_accounts="$REPLY"
+    prompt_valid "Snapshots disk device" "$DEFAULT_DEV3" "$RE_DEV" "must look like /dev/..."
+    ROLE_DISK_snapshots="$REPLY"
+  else
+    prompt_valid "Disk device (holds ledger, accounts and snapshots)" "$DEFAULT_DEV1" "$RE_DEV" "must look like /dev/..."
+    ROLE_DISK_ledger="$REPLY"
+    ROLE_DISK_accounts="$REPLY"
+    ROLE_DISK_snapshots="$REPLY"
+    if [ "$CLUSTER" = "mainnet" ]; then
+      echo "  NOTE: separate NVMe devices for ledger/accounts/snapshots are recommended on mainnet."
+    fi
   fi
 fi
+
+LEDGER_PATH="$(mount_dir_for_disk "$ROLE_DISK_ledger")/ledger"
+ACCOUNTS_PATH="$(mount_dir_for_disk "$ROLE_DISK_accounts")/accounts"
+SNAPSHOTS_PATH="$(mount_dir_for_disk "$ROLE_DISK_snapshots")/snapshots"
 
 prompt_valid "Validator log path" "/mnt/solana/log" "$RE_ABSPATH" "must be an absolute path"
 LOG_PATH="$REPLY"
@@ -303,20 +371,30 @@ disk_setup_cmds() { # disk_setup_cmds <dev> <mount_dir> -> commands for one manu
   printf '  grep -q " %s " /etc/fstab || echo "UUID=$UUID %s xfs %s 0 0" >> /etc/fstab\n' "$2" "$2" "$DISK_FS_OPTIONS"
 }
 
-if [ "$DISK_SHAPE" = "separate" ]; then
-  DISK_MANAGEMENT_DISKS="$(
-    disk_entry /mnt/solana_ledger "$LEDGER_DEV" ledger ledger
-    disk_entry /mnt/solana_accounts "$ACCOUNTS_DEV" accounts accounts
-    disk_entry /mnt/solana_snapshots "$SNAPSHOTS_DEV" snapshots snapshots
-  )"
-else
-  DISK_MANAGEMENT_DISKS="$(
+render_disks_block() { # one entry per role from the role→disk map; shared devices dedupe by mount dir
+  local r v
+  if [ "$ROLE_DISK_ledger" = "$ROLE_DISK_accounts" ] && [ "$ROLE_DISK_accounts" = "$ROLE_DISK_snapshots" ]; then
     printf '        # single-disk layout: entries share one device; the role loop is idempotent\n'
-    disk_entry /mnt/solana "$SINGLE_DEV" ledger ledger
-    disk_entry /mnt/solana "$SINGLE_DEV" accounts accounts
-    disk_entry /mnt/solana "$SINGLE_DEV" snapshots snapshots
-  )"
-fi
+  elif [ "$ROLE_DISK_ledger" = "$ROLE_DISK_accounts" ] || [ "$ROLE_DISK_accounts" = "$ROLE_DISK_snapshots" ] || [ "$ROLE_DISK_ledger" = "$ROLE_DISK_snapshots" ]; then
+    printf '        # hybrid layout: some entries share a device; the role loop is idempotent\n'
+  fi
+  for r in $ROLES; do
+    v="ROLE_DISK_$r"
+    disk_entry "$(mount_dir_for_disk "${!v}")" "${!v}" "$r" "$r"
+  done
+}
+
+unique_role_disks() { # devices from the map, role order, deduplicated
+  local seen="" r v
+  for r in $ROLES; do
+    v="ROLE_DISK_$r"
+    case " $seen " in *" ${!v} "*) continue ;; esac
+    seen+="${seen:+ }${!v}"
+    printf '%s\n' "${!v}"
+  done
+}
+
+DISK_MANAGEMENT_DISKS="$(render_disks_block)"
 
 ENTRYPOINTS_BLOCK="$(yaml_list_block "$(p entrypoints)")"
 KNOWN_VALIDATORS_BLOCK="$(yaml_list_block "$(p known_validators)")"
@@ -403,7 +481,7 @@ echo "Generated: playbooks/${VALIDATOR_NAME}-${CLUSTER}-profile.yaml"
 OUTPUT_FILE=""  # generation succeeded; cleanup must not remove it
 
 # ------------------------------------------------------- manual disk setup script
-if [ "$DISK_LAYOUT" = "manual" ]; then
+if [ "$MANUAL_SETUP" -eq 1 ]; then
   SETUP_SCRIPT_NAME="disk-setup-${VALIDATOR_NAME}.sh"
   SETUP_SCRIPT="$REPO_ROOT/playbooks/$SETUP_SCRIPT_NAME"
   # shellcheck disable=SC2016  # ${1-} belongs to the generated script's runtime
@@ -415,17 +493,13 @@ if [ "$DISK_LAYOUT" = "manual" ]; then
     printf 'set -euo pipefail\n\n'
     printf 'run() {\n'
     printf '  lsblk -o NAME,SIZE,FSTYPE,MOUNTPOINT\n'
-    if [ "$DISK_SHAPE" = "separate" ]; then
-      disk_setup_cmds "$LEDGER_DEV" /mnt/solana_ledger
-      disk_setup_cmds "$ACCOUNTS_DEV" /mnt/solana_accounts
-      disk_setup_cmds "$SNAPSHOTS_DEV" /mnt/solana_snapshots
-      printf '  mount -a\n'
-      printf '  findmnt /mnt/solana_ledger\n  findmnt /mnt/solana_accounts\n  findmnt /mnt/solana_snapshots\n'
-    else
-      disk_setup_cmds "$SINGLE_DEV" /mnt/solana
-      printf '  mount -a\n'
-      printf '  findmnt /mnt/solana\n'
-    fi
+    while IFS= read -r dev; do
+      disk_setup_cmds "$dev" "$(mount_dir_for_disk "$dev")"
+    done < <(unique_role_disks)
+    printf '  mount -a\n'
+    while IFS= read -r dev; do
+      printf '  findmnt %s\n' "$(mount_dir_for_disk "$dev")"
+    done < <(unique_role_disks)
     printf '}\n\n'
     printf 'if [ "${1-}" != "--yes" ]; then\n'
     printf '  echo "DRY RUN — commands that would execute:"\n'
