@@ -21,6 +21,6 @@
 
 - [x] 4.1 Scripted e2e matrix: (a) 3 disks × one role each ≡ separate output; (b) 1 disk × `all` ≡ single output; (c) 2-disk hybrid (`ledger` / `accounts,snapshots`) — assert entries, mount dirs, and paths per spec; (d) duplicate-role retry; (e) missing-role restart; (f) decline → classic flow
 - [x] 4.2 Manual-mode assignment e2e: hybrid map generates `disk-setup-<name>.sh` covering exactly the two assigned disks with correct mount dirs; `--yes` guard intact
-- [ ] 4.3 shellcheck + yamllint + pinned ansible-lint clean; commit, push, CI green
+- [x] 4.3 shellcheck + yamllint + pinned ansible-lint clean; commit, push, CI green
 
 Note: e2e runs need a way to simulate detected disks (the dev box has none) — inject via a test hook (e.g. `NEW_PLAYBOOK_FAKE_UNUSED_DISKS` env var consumed only when set) so the assignment path is testable; document the hook as test-only.
