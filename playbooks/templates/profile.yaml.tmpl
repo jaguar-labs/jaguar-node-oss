@@ -81,21 +81,9 @@
               - xdp.ring_tx in [256, 512, 1024, 2048, 4096]
             fail_msg: "xdp.ring_rx/ring_tx must be one of 256/512/1024/2048/4096"
   vars:
-    disk_management:
-      enable: True
-      mount: @@DISK_MOUNT@@
-      config: @@DISK_CONFIG@@
-      disks:
-@@DISK_MANAGEMENT_DISKS@@
-    ramdisk_management:
-      enabled: True
-      mount: True
-      config: True
-      ramdisks:
-        - mount_dir: /mnt/ramdisk_index
-          options: nodev,nosuid,noexec,nodiratime,size=120G
-          subdir: accounts_index
-          startup_arg: accounts-index-path
+    # Storage is configured as LOCATIONS only. Formatting and mounting happen
+    # via the wizard-generated disk-setup-<name>.sh, run on the host as root
+    # BEFORE this playbook. Ansible never touches block devices.
     solana_version: "4.1.0-beta.3"
     watch_tower_version: "4.1.0-beta.3"
     solana_user: solana

@@ -216,10 +216,6 @@ mount_dir_for_disk() { # <dev> -> mount dir derived from the role set on that de
   fi
 }
 
-DISK_MOUNT="True"
-DISK_CONFIG="True"
-MANUAL_SETUP=0
-
 # -------- selection-first: which detected disks to use (none -> classic flow)
 ASSIGNMENT_DONE=0
 if [ "${#UNUSED_DISKS[@]}" -gt 0 ]; then
@@ -309,26 +305,12 @@ if [ "$ASSIGNMENT_DONE" -eq 1 ]; then
     [ -z "$missing" ] && break
     echo "  Unassigned role(s):$missing — assign every role across the selected disks; restarting role prompts."
   done
-  if ! prompt_yn "Format and mount the assigned disks via the playbook? (n = you prepare them manually)" "y"; then
-    DISK_MOUNT="False"
-    MANUAL_SETUP=1
-  fi
 else
   # -------- classic layout flow
   while :; do
-    prompt "Disk layout: separate NVMe per ledger/accounts/snapshots, all on one disk, or manually prepared disks (separate/single/manual)" "separate"
-    case "$REPLY" in separate|single|manual) DISK_LAYOUT="$REPLY"; break ;; *) echo "  Invalid: must be separate, single or manual" ;; esac
+    prompt "Disk layout: separate NVMe per ledger/accounts/snapshots, or all on one disk (separate/single)" "separate"
+    case "$REPLY" in separate|single) DISK_SHAPE="$REPLY"; break ;; *) echo "  Invalid: must be separate or single" ;; esac
   done
-  DISK_SHAPE="$DISK_LAYOUT"
-  if [ "$DISK_LAYOUT" = "manual" ]; then
-    # operator formats/mounts themselves; the role only creates subdirs
-    DISK_MOUNT="False"
-    MANUAL_SETUP=1
-    while :; do
-      prompt "Manual shape: one disk for everything, or one per ledger/accounts/snapshots (single/separate)" "single"
-      case "$REPLY" in separate|single) DISK_SHAPE="$REPLY"; break ;; *) echo "  Invalid: must be single or separate" ;; esac
-    done
-  fi
   if [ "$DISK_SHAPE" = "separate" ]; then
     prompt_valid "Ledger disk device" "$DEFAULT_DEV1" "$RE_DEV" "must look like /dev/..."
     ROLE_DISK_ledger="$REPLY"
@@ -432,16 +414,6 @@ yaml_list_block() { # yaml_list_block <space separated items> -> 6-space indente
 
 DISK_FS_OPTIONS="rw,noatime,nodiratime,discard,attr2,inode64,logbufs=8,logbsize=256k,allocsize=64k"
 
-disk_entry() { # disk_entry <mount_dir> <dev> <subdir> <startup_arg>
-  printf '        - mount_dir: %s\n' "$1"
-  printf '          dev: %s\n' "$2"
-  printf '          fs_type: xfs\n'
-  printf '          options: %s\n' "$DISK_FS_OPTIONS"
-  printf '          subdir: %s\n' "$3"
-  printf '          startup_arg: %s\n' "$4"
-  printf '          force: true\n'
-}
-
 # shellcheck disable=SC2016  # $UUID etc. are runtime expressions of the GENERATED script
 disk_setup_cmds() { # disk_setup_cmds <dev> <mount_dir> -> commands for one manually prepared disk
   printf '  mkfs.xfs %s\n' "$1"
@@ -449,19 +421,6 @@ disk_setup_cmds() { # disk_setup_cmds <dev> <mount_dir> -> commands for one manu
   printf '  mount -o %s %s %s\n' "$DISK_FS_OPTIONS" "$1" "$2"
   printf '  UUID=$(blkid -s UUID -o value %s)\n' "$1"
   printf '  grep -q " %s " /etc/fstab || echo "UUID=$UUID %s xfs %s 0 0" >> /etc/fstab\n' "$2" "$2" "$DISK_FS_OPTIONS"
-}
-
-render_disks_block() { # one entry per role from the role→disk map; shared devices dedupe by mount dir
-  local r v
-  if [ "$ROLE_DISK_ledger" = "$ROLE_DISK_accounts" ] && [ "$ROLE_DISK_accounts" = "$ROLE_DISK_snapshots" ]; then
-    printf '        # single-disk layout: entries share one device; the role loop is idempotent\n'
-  elif [ "$ROLE_DISK_ledger" = "$ROLE_DISK_accounts" ] || [ "$ROLE_DISK_accounts" = "$ROLE_DISK_snapshots" ] || [ "$ROLE_DISK_ledger" = "$ROLE_DISK_snapshots" ]; then
-    printf '        # hybrid layout: some entries share a device; the role loop is idempotent\n'
-  fi
-  for r in $ROLES; do
-    v="ROLE_DISK_$r"
-    disk_entry "$(mount_dir_for_disk "${!v}")" "${!v}" "$r" "$r"
-  done
 }
 
 unique_role_disks() { # devices from the map, role order, deduplicated
@@ -474,8 +433,6 @@ unique_role_disks() { # devices from the map, role order, deduplicated
   done
 }
 
-DISK_MANAGEMENT_DISKS="$(render_disks_block)"
-
 ENTRYPOINTS_BLOCK="$(yaml_list_block "$(p entrypoints)")"
 KNOWN_VALIDATORS_BLOCK="$(yaml_list_block "$(p known_validators)")"
 
@@ -484,9 +441,6 @@ awk \
   -v CLUSTER="$CLUSTER" \
   -v IDENTITY_PUBKEY="$IDENTITY_PUBKEY" \
   -v VOTE_PUBKEY="$VOTE_PUBKEY" \
-  -v DISK_MANAGEMENT_DISKS="$DISK_MANAGEMENT_DISKS" \
-  -v DISK_MOUNT="$DISK_MOUNT" \
-  -v DISK_CONFIG="$DISK_CONFIG" \
   -v LEDGER_PATH="$LEDGER_PATH" \
   -v ACCOUNTS_PATH="$ACCOUNTS_PATH" \
   -v SNAPSHOTS_PATH="$SNAPSHOTS_PATH" \
@@ -518,8 +472,6 @@ awk \
     gsub(/@@CLUSTER@@/, CLUSTER, line)
     gsub(/@@IDENTITY_PUBKEY@@/, IDENTITY_PUBKEY, line)
     gsub(/@@VOTE_PUBKEY@@/, VOTE_PUBKEY, line)
-    gsub(/@@DISK_MOUNT@@/, DISK_MOUNT, line)
-    gsub(/@@DISK_CONFIG@@/, DISK_CONFIG, line)
     gsub(/@@LEDGER_PATH@@/, LEDGER_PATH, line)
     gsub(/@@ACCOUNTS_PATH@@/, ACCOUNTS_PATH, line)
     gsub(/@@SNAPSHOTS_PATH@@/, SNAPSHOTS_PATH, line)
@@ -540,7 +492,6 @@ awk \
     gsub(/@@XDP_ENABLED@@/, XDP_ENABLED, line)
     gsub(/@@XDP_INTERFACE@@/, XDP_INTERFACE, line)
     gsub(/@@XDP_RETRANSMIT_CORES@@/, XDP_RETRANSMIT_CORES, line)
-    if (line == "@@DISK_MANAGEMENT_DISKS@@") { print DISK_MANAGEMENT_DISKS; next }
     if (line == "@@ENTRYPOINTS_BLOCK@@") { print ENTRYPOINTS_BLOCK; next }
     if (line == "@@KNOWN_VALIDATORS_BLOCK@@") { print KNOWN_VALIDATORS_BLOCK; next }
     print line
@@ -564,8 +515,9 @@ echo
 echo "Generated: playbooks/${VALIDATOR_NAME}-${CLUSTER}-profile.yaml"
 OUTPUT_FILE=""  # generation succeeded; cleanup must not remove it
 
-# ------------------------------------------------------- manual disk setup script
-if [ "$MANUAL_SETUP" -eq 1 ]; then
+# ------------------------------------------------------- disk setup script (always)
+# Ansible never touches block devices; this script is the only format/mount path.
+{
   SETUP_SCRIPT_NAME="disk-setup-${VALIDATOR_NAME}.sh"
   SETUP_SCRIPT="$REPO_ROOT/playbooks/$SETUP_SCRIPT_NAME"
   # shellcheck disable=SC2016  # ${1-} belongs to the generated script's runtime
@@ -596,10 +548,11 @@ if [ "$MANUAL_SETUP" -eq 1 ]; then
   } > "$SETUP_SCRIPT"
   chmod +x "$SETUP_SCRIPT"
   echo
-  echo "Manual disk mode: run these commands on the target host as root BEFORE the playbook."
+  echo "Disk preparation: run these commands on the target host as root BEFORE the playbook"
+  echo "(skip if the disks are already formatted and mounted)."
   echo "Saved to playbooks/$SETUP_SCRIPT_NAME (gitignored; regenerate by re-running the wizard):"
   bash "$SETUP_SCRIPT" 2>/dev/null | sed '1d' || true
-fi
+}
 
 # ---------------------------------------------------------------- optional vault step
 if [ -f "$VAULT_FILE" ]; then
@@ -633,13 +586,15 @@ fi
 echo
 echo "Next steps:"
 echo "  1. Review playbooks/${VALIDATOR_NAME}-${CLUSTER}-profile.yaml (cluster presets last verified 2026-07)."
-echo "  2. Run: ansible-playbook playbooks/${VALIDATOR_NAME}-${CLUSTER}-profile.yaml -i inventory -e host=local --connection=local --ask-vault-pass"
+echo "  2. Prepare the disks FIRST (unless already formatted+mounted): run playbooks/disk-setup-${VALIDATOR_NAME}.sh"
+echo "     on the target host as root, with --yes to execute."
+echo "  3. Run: ansible-playbook playbooks/${VALIDATOR_NAME}-${CLUSTER}-profile.yaml -i inventory -e host=local --connection=local --ask-vault-pass"
 if [ "$IDENTITY_DEFERRED" -eq 1 ]; then
-  echo "  3. Identity deferred: the playbook generates /home/solana/.secrets/funded-validator-keypair.json"
+  echo "  4. Identity deferred: the playbook generates /home/solana/.secrets/funded-validator-keypair.json"
   echo "     on the host and fills validator_identity_pubkey automatically during the run."
 fi
 if [ "$VOTE_DEFERRED" -eq 1 ]; then
-  echo "  4. Vote account deferred: after provisioning, create it ON-CHAIN (needs a funded identity):"
+  echo "  5. Vote account deferred: after provisioning, create it ON-CHAIN (needs a funded identity):"
   echo "       solana create-vote-account /home/solana/.secrets/vote-account-keypair.json \\"
   echo "         /home/solana/.secrets/funded-validator-keypair.json <WITHDRAWER_ADDRESS>"
   echo "     Until then the validator cannot vote and watchtower will alert — that is expected."

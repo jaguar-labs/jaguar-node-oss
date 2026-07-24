@@ -14,11 +14,10 @@
   tags:
     - validator.copy.scripts
 
-- name: disks mgmt
-  import_tasks: disks_mount.yaml
-
-- name: ramdisks mgmt
-  import_tasks: ramdisk.yaml
+- name: storage directories
+  import_tasks: storage_dirs.yaml
+  tags:
+    - validator.storage
 
 - name: XDP NIC tuning
   import_tasks: xdp_nic.yaml
