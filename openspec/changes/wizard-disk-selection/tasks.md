@@ -14,3 +14,8 @@
 - [x] 3.1 e2e matrix updated to the new sequence: select-all + one-role-each ≡ separate; single-disk `all`; hybrid `1,2` → ledger / accounts,snapshots; `none` → classic; invalid selection (unknown index, >3) re-prompts; duplicate-role and missing-role paths; one-disk `skip`-equivalent (select `none`) proves the old trap is gone
 - [x] 3.2 Round-trip: sample regeneration empty diff; manual-mode assignment still generates the setup script
 - [x] 3.3 shellcheck + yamllint clean; commit, push, CI green
+
+## 4. Last-disk coverage (field follow-up)
+
+- [x] 4.1 Last selected disk's prompt defaults to the still-unassigned roles and rejects answers that don't cover them (naming the missing roles) — under-assignment corrected in place, no restart loop
+- [x] 4.2 e2e: one-disk `ledger` answer rejected then Enter completes; two-disk under-assign rejected naming the missing role; matrix cases and sample round-trip unchanged; lint + CI green

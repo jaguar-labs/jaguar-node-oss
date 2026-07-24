@@ -260,14 +260,17 @@ if [ "$ASSIGNMENT_DONE" -eq 1 ]; then
     n="${#SELECTED[@]}"
     for i in "${!SELECTED[@]}"; do
       dev="${SELECTED[$i]}"
-      case "$n:$i" in
-        1:0) def="all" ;;
-        2:0) def="ledger" ;;
-        2:1) def="accounts,snapshots" ;;
-        3:0) def="ledger" ;;
-        3:1) def="accounts" ;;
-        *)   def="snapshots" ;;
-      esac
+      remaining=""
+      for r in $ROLES; do v="ROLE_DISK_$r"; [ -z "${!v}" ] && remaining+="${remaining:+,}$r"; done
+      if [ "$i" -eq $((n-1)) ]; then
+        # last selected disk: it must carry everything still unassigned
+        def="$remaining"
+        [ "$def" = "ledger,accounts,snapshots" ] && def="all"
+      elif [ "$i" -eq 0 ]; then
+        def="ledger"
+      else
+        def="accounts"
+      fi
       while :; do
         prompt "Use ${dev} for (ledger/accounts/snapshots comma-separated, all)" "$def"
         ans="${REPLY,,}"; ans="${ans// /}"
@@ -283,6 +286,16 @@ if [ "$ASSIGNMENT_DONE" -eq 1 ]; then
           esac
         done
         [ "$ok" -eq 1 ] || continue
+        if [ "$i" -eq $((n-1)) ]; then
+          miss=""
+          for r in ${remaining//,/ }; do
+            case ",$ans," in *",$r,"*) ;; *) miss+="${miss:+ }$r" ;; esac
+          done
+          if [ -n "$miss" ]; then
+            echo "  Invalid: role(s) $miss still need a disk and ${dev} is the last selected one — include them (Enter = $def)"
+            continue
+          fi
+        fi
         for t in "${toks[@]}"; do printf -v "ROLE_DISK_$t" '%s' "$dev"; done
         break
       done
