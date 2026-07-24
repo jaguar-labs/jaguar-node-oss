@@ -16,7 +16,7 @@ sudo apt install ansible
 ```bash
 ansible-galaxy collection install -r requirements.yml
 ```
-4. Create a validator profile with the wizard. It prompts for ~10 validator-specific values (name, cluster, pubkeys, disk devices, log path, Jito/XDP toggles), auto-fills cluster presets (entrypoints, known validators, genesis hash, Jito endpoints), and writes `playbooks/<name>-<cluster>-profile.yaml`:
+4. Create a validator profile with the wizard. It prompts for ~10 validator-specific values (name, cluster, pubkeys, disk devices, log path, Jito/XDP toggles), auto-fills cluster presets (entrypoints, known validators, genesis hash, Jito endpoints), and writes `playbooks/<name>-<cluster>-profile.yaml`. No keys yet? Answer `gen` at the identity prompt and `skip` at the vote account prompt — the playbook generates both keypairs on the host during provisioning and fills the pubkeys automatically; the one manual step left is creating the vote account on-chain (`solana create-vote-account`, printed in the wizard's next-steps; watchtower alerts until it exists — expected during bootstrap):
 ```bash
 bin/new-playbook.sh          # refuses to overwrite an existing profile; use --force to regenerate
 ```

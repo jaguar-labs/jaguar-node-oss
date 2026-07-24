@@ -127,10 +127,31 @@ while :; do
   case "$REPLY" in testnet|mainnet) CLUSTER="$REPLY"; break ;; *) echo "  Invalid: must be testnet or mainnet" ;; esac
 done
 
-prompt_valid "Validator identity pubkey" "" "$RE_PUBKEY" "must be base58, 32-44 chars"
-IDENTITY_PUBKEY="$REPLY"
-prompt_valid "Vote account pubkey" "" "$RE_PUBKEY" "must be base58, 32-44 chars"
-VOTE_PUBKEY="$REPLY"
+IDENTITY_DEFERRED=0
+while :; do
+  prompt "Validator identity pubkey (base58, or 'gen' to generate on the host)" ""
+  if [ "$REPLY" = "gen" ]; then
+    IDENTITY_PUBKEY=""
+    IDENTITY_DEFERRED=1
+    echo "  Deferred: the playbook generates funded-validator-keypair.json on the host and fills the pubkey at run time."
+    break
+  fi
+  [[ "$REPLY" =~ $RE_PUBKEY ]] && { IDENTITY_PUBKEY="$REPLY"; break; }
+  echo "  Invalid: must be base58 32-44 chars, or 'gen'"
+done
+
+VOTE_DEFERRED=0
+while :; do
+  prompt "Vote account pubkey (base58, or 'skip' to generate a keypair on the host)" "skip"
+  if [ "$REPLY" = "skip" ] || [ -z "$REPLY" ]; then
+    VOTE_PUBKEY=""
+    VOTE_DEFERRED=1
+    echo "  Deferred: the playbook generates vote-account-keypair.json on the host; you create the account on-chain afterwards."
+    break
+  fi
+  [[ "$REPLY" =~ $RE_PUBKEY ]] && { VOTE_PUBKEY="$REPLY"; break; }
+  echo "  Invalid: must be base58 32-44 chars, or 'skip'"
+done
 
 # ---------------------------------------------------------------- disk configuration
 detect_unused_disks() { # prints "path size" per bare disk: no partitions/holders, no fs, unmounted
@@ -550,3 +571,13 @@ echo
 echo "Next steps:"
 echo "  1. Review playbooks/${VALIDATOR_NAME}-${CLUSTER}-profile.yaml (cluster presets last verified 2026-07)."
 echo "  2. Run: ansible-playbook playbooks/${VALIDATOR_NAME}-${CLUSTER}-profile.yaml -i inventory -e host=local --connection=local --ask-vault-pass"
+if [ "$IDENTITY_DEFERRED" -eq 1 ]; then
+  echo "  3. Identity deferred: the playbook generates /home/solana/.secrets/funded-validator-keypair.json"
+  echo "     on the host and fills validator_identity_pubkey automatically during the run."
+fi
+if [ "$VOTE_DEFERRED" -eq 1 ]; then
+  echo "  4. Vote account deferred: after provisioning, create it ON-CHAIN (needs a funded identity):"
+  echo "       solana create-vote-account /home/solana/.secrets/vote-account-keypair.json \\"
+  echo "         /home/solana/.secrets/funded-validator-keypair.json <WITHDRAWER_ADDRESS>"
+  echo "     Until then the validator cannot vote and watchtower will alert — that is expected."
+fi

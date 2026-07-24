@@ -40,6 +40,58 @@
     PATH: "{{ env_path }}"
   when: not funded_validator_keypair.stat.exists
 
+# deferred-key backfill: an empty pubkey var means "fill me from the host
+# keypair" — set_fact outranks play vars, so alerting/monitoring render the
+# real values. Supplied (non-empty) pubkeys are never touched.
+- name: Read the generated identity pubkey
+  shell: solana-keygen pubkey {{ secrets_path }}/funded-validator-keypair.json
+  become: yes
+  become_user: "{{ solana_user }}"
+  become_method: sudo
+  environment:
+    PATH: "{{ env_path }}"
+  register: generated_identity_pubkey
+  changed_when: false
+  when: validator_identity_pubkey | length == 0
+
+- name: Fill validator_identity_pubkey from the generated keypair
+  set_fact:
+    validator_identity_pubkey: "{{ generated_identity_pubkey.stdout | trim }}"
+  when: validator_identity_pubkey | length == 0
+
+- name: Check if vote-account-keypair.json exists (deferred vote account)
+  stat:
+    path: "{{ secrets_path }}/vote-account-keypair.json"
+  register: vote_account_keypair
+  when: vote_account_pubkey | length == 0
+
+- name: Create vote account keypair (deferred vote account)
+  shell: solana-keygen new -s --no-bip39-passphrase -o {{ secrets_path }}/vote-account-keypair.json
+  become: yes
+  become_user: "{{ solana_user }}"
+  become_method: sudo
+  environment:
+    PATH: "{{ env_path }}"
+  when:
+    - vote_account_pubkey | length == 0
+    - not vote_account_keypair.stat.exists
+
+- name: Read the generated vote account pubkey
+  shell: solana-keygen pubkey {{ secrets_path }}/vote-account-keypair.json
+  become: yes
+  become_user: "{{ solana_user }}"
+  become_method: sudo
+  environment:
+    PATH: "{{ env_path }}"
+  register: generated_vote_pubkey
+  changed_when: false
+  when: vote_account_pubkey | length == 0
+
+- name: Fill vote_account_pubkey from the generated keypair
+  set_fact:
+    vote_account_pubkey: "{{ generated_vote_pubkey.stdout | trim }}"
+  when: vote_account_pubkey | length == 0
+
 - name: Create a validator keypair symblink
   ansible.builtin.file:
     src: "{{ secrets_path }}/funded-validator-keypair.json"
