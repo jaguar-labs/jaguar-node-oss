@@ -23,4 +23,4 @@
 
 - [x] 5.1 e2e: separate, single, and hybrid-assignment generations — playbooks parse, contain paths only, setup scripts cover the right devices/mount dirs; `--yes` guard intact
 - [x] 5.2 Static review of `storage_dirs.yaml` against the host-storage-preparation spec scenarios
-- [ ] 5.3 shellcheck + yamllint (+ pinned ansible-lint if available) clean; commit, push, CI green
+- [x] 5.3 shellcheck + yamllint (+ pinned ansible-lint if available) clean; commit, push, CI green
