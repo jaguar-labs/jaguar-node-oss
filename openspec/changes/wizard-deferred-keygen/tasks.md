@@ -25,4 +25,4 @@
 - [x] 5.1 Round-trip: sample regeneration with supplied pubkeys — empty diff (prompt changes must not alter supplied-value output)
 - [x] 5.2 Scripted e2e: `gen` + `skip` run — playbook has both vars empty, parses, next-steps contains the create-vote-account command; invalid tokens still re-prompt
 - [x] 5.3 Rendered-template check (static): with an empty vote var the start-script template logic selects the keypair-file branch (verify via a python/jinja render of the template snippet or grep-level assertion of the generated playbook + template pairing)
-- [ ] 5.4 shellcheck + yamllint (+ pinned ansible-lint if available) clean; commit, push, CI green; flag that host-side backfill is validated on the next real provisioning run
+- [x] 5.4 shellcheck + yamllint (+ pinned ansible-lint if available) clean; commit, push, CI green; flag that host-side backfill is validated on the next real provisioning run
