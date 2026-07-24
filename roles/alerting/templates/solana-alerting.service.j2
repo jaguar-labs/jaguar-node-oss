@@ -11,7 +11,7 @@ Environment=RUST_LOG=info
 Environment=PAGERDUTY_INTEGRATION_KEY={{ pager_duty_key }}
 Environment=IDENTITY={{ validator_identity_pubkey }}
 
-ExecStart=/home/solana/.cargo/bin/agave-watchtower \
+ExecStart={{ env_path }}/agave-watchtower \
 	--validator-identity=${IDENTITY} \
 	--url=http://127.0.0.1:8899 \
     --minimum-validator-identity-balance=1

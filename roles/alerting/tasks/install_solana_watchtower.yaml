@@ -1,6 +1,15 @@
 ---
+# agave-watchtower is part of the --validator-only build set, so both the jito
+# build (build-jito.sh) and the vanilla source build (node-base) already put it
+# in active_release/bin. cargo install from crates.io is only a fallback for
+# hosts with neither — beta crates frequently fail to resolve/build there.
 
-- name: Install Solana watch-tower
+- name: Check for agave-watchtower in active_release
+  stat:
+    path: "{{ env_path }}/agave-watchtower"
+  register: watchtower_bin
+
+- name: Install Solana watch-tower (cargo fallback)
   become: true
   become_user: "{{ solana_user }}"
   become_method: sudo
@@ -8,3 +17,17 @@
     executable: "/home/{{ solana_user }}/.cargo/bin/cargo"
     name: agave-watchtower
     version: "{{ watch_tower_version }}"
+  when: not watchtower_bin.stat.exists
+
+- name: Expose cargo-installed watchtower in active_release
+  become: true
+  become_user: "{{ solana_user }}"
+  become_method: sudo
+  copy:
+    src: "/home/{{ solana_user }}/.cargo/bin/agave-watchtower"
+    dest: "{{ env_path }}/agave-watchtower"
+    remote_src: yes
+    owner: "{{ solana_user }}"
+    group: "{{ solana_user }}"
+    mode: '0755'
+  when: not watchtower_bin.stat.exists
