@@ -182,7 +182,7 @@ if [ "${#UNUSED_DISKS[@]}" -gt 0 ]; then
   echo
   echo "Unused disks detected on this machine (no partitions, no filesystem, unmounted):"
   for i in "${!UNUSED_DISKS[@]}"; do
-    echo "  ${UNUSED_DISKS[$i]} (${UNUSED_SIZES[$i]})"
+    echo "  $((i+1))) ${UNUSED_DISKS[$i]} (${UNUSED_SIZES[$i]})"
   done
   echo "  (Detection runs where the wizard runs — ignore this list when preparing a playbook for another host.)"
   echo
@@ -216,19 +216,61 @@ DISK_MOUNT="True"
 DISK_CONFIG="True"
 MANUAL_SETUP=0
 
-if [ "${#UNUSED_DISKS[@]}" -gt 0 ] && prompt_yn "Configure the detected disks interactively (assign roles per disk)?" "y"; then
-  # -------- assignment flow: one question per detected disk
+# -------- selection-first: which detected disks to use (none -> classic flow)
+ASSIGNMENT_DONE=0
+if [ "${#UNUSED_DISKS[@]}" -gt 0 ]; then
+  while :; do
+    prompt "Select disks to use (numbers or /dev paths comma-separated, 'all', or 'none' for the classic prompts)" "all"
+    sel="${REPLY,,}"; sel="${sel// /}"
+    [ "$sel" = "none" ] && break
+    SELECTED=()
+    if [ "$sel" = "all" ]; then
+      SELECTED=("${UNUSED_DISKS[@]}")
+    else
+      ok=1
+      IFS=',' read -ra stoks <<<"$sel"
+      for t in "${stoks[@]}"; do
+        pick=""
+        if [[ "$t" =~ ^[0-9]+$ ]]; then
+          idx=$((t-1))
+          [ "$idx" -ge 0 ] && [ "$idx" -lt "${#UNUSED_DISKS[@]}" ] && pick="${UNUSED_DISKS[$idx]}"
+        else
+          for d in "${UNUSED_DISKS[@]}"; do [ "$d" = "$t" ] && pick="$d"; done
+        fi
+        if [ -z "$pick" ]; then echo "  Invalid selection '$t' (use the listed numbers or device paths)"; ok=0; continue; fi
+        case " ${SELECTED[*]-} " in *" $pick "*) ;; *) SELECTED+=("$pick") ;; esac
+      done
+      [ "$ok" -eq 1 ] || continue
+    fi
+    if [ "${#SELECTED[@]}" -lt 1 ] || [ "${#SELECTED[@]}" -gt 3 ]; then
+      echo "  Invalid: select between 1 and 3 disks (three roles: ledger, accounts, snapshots)"
+      continue
+    fi
+    ASSIGNMENT_DONE=1
+    break
+  done
+fi
+
+if [ "$ASSIGNMENT_DONE" -eq 1 ]; then
+  # -------- role prompts over the selected disks only
   while :; do
     ROLE_DISK_ledger=""
     ROLE_DISK_accounts=""
     ROLE_DISK_snapshots=""
-    for i in "${!UNUSED_DISKS[@]}"; do
-      dev="${UNUSED_DISKS[$i]}"
-      def="skip"; [ "$i" -eq 0 ] && def="all"
+    n="${#SELECTED[@]}"
+    for i in "${!SELECTED[@]}"; do
+      dev="${SELECTED[$i]}"
+      case "$n:$i" in
+        1:0) def="all" ;;
+        2:0) def="ledger" ;;
+        2:1) def="accounts,snapshots" ;;
+        3:0) def="ledger" ;;
+        3:1) def="accounts" ;;
+        *)   def="snapshots" ;;
+      esac
       while :; do
-        prompt "Use ${dev} (${UNUSED_SIZES[$i]}) for (ledger/accounts/snapshots comma-separated, all, skip)" "$def"
+        prompt "Use ${dev} for (ledger/accounts/snapshots comma-separated, all)" "$def"
         ans="${REPLY,,}"; ans="${ans// /}"
-        [ "$ans" = "skip" ] && break
         [ "$ans" = "all" ] && ans="ledger,accounts,snapshots"
         ok=1
         IFS=',' read -ra toks <<<"$ans"
@@ -237,7 +279,7 @@ if [ "${#UNUSED_DISKS[@]}" -gt 0 ] && prompt_yn "Configure the detected disks in
             ledger|accounts|snapshots)
               v="ROLE_DISK_$t"
               if [ -n "${!v}" ]; then echo "  Invalid: $t is already assigned to ${!v}"; ok=0; fi ;;
-            *) echo "  Invalid token '$t' (use ledger/accounts/snapshots, all, or skip)"; ok=0 ;;
+            *) echo "  Invalid token '$t' (use ledger/accounts/snapshots or all)"; ok=0 ;;
           esac
         done
         [ "$ok" -eq 1 ] || continue
@@ -248,7 +290,7 @@ if [ "${#UNUSED_DISKS[@]}" -gt 0 ] && prompt_yn "Configure the detected disks in
     missing=""
     for r in $ROLES; do v="ROLE_DISK_$r"; [ -z "${!v}" ] && missing+=" $r"; done
     [ -z "$missing" ] && break
-    echo "  Unassigned role(s):$missing — every role needs a disk; restarting assignment."
+    echo "  Unassigned role(s):$missing — assign every role across the selected disks; restarting role prompts."
   done
   if ! prompt_yn "Format and mount the assigned disks via the playbook? (n = you prepare them manually)" "y"; then
     DISK_MOUNT="False"
