@@ -1,13 +1,26 @@
 ---
-# agave-watchtower is part of the --validator-only build set, so both the jito
-# build (build-jito.sh) and the vanilla source build (node-base) already put it
-# in active_release/bin. cargo install from crates.io is only a fallback for
-# hosts with neither — beta crates frequently fail to resolve/build there.
+# agave-watchtower is part of the --validator-only build set:
+#   - non-jito hosts: node-base's full source build provides it in active_release
+#   - jito hosts: it arrives with the operator-run build-jito.sh (node-base only
+#     builds CLI tools there), so during first provisioning it does not exist yet
+# The cargo fallback exists for hosts with neither; --locked is required because
+# beta crates bit-rot on crates.io when unpinned deps re-resolve.
 
 - name: Check for agave-watchtower in active_release
   stat:
     path: "{{ env_path }}/agave-watchtower"
   register: watchtower_bin
+
+- name: Note that jito hosts get watchtower from build-jito.sh
+  debug:
+    msg: >-
+      agave-watchtower is not in active_release yet — on jito hosts it is built
+      by build-jito.sh (validator-only set). The solana-alerting service is
+      enabled but not started; start it after the jito build. No cargo fallback
+      attempted.
+  when:
+    - not watchtower_bin.stat.exists
+    - jito.enabled | default(false) | bool
 
 - name: Install Solana watch-tower (cargo fallback)
   become: true
@@ -17,7 +30,10 @@
     executable: "/home/{{ solana_user }}/.cargo/bin/cargo"
     name: agave-watchtower
     version: "{{ watch_tower_version }}"
-  when: not watchtower_bin.stat.exists
+    locked: true
+  when:
+    - not watchtower_bin.stat.exists
+    - not (jito.enabled | default(false) | bool)
 
 - name: Expose cargo-installed watchtower in active_release
   become: true
@@ -30,4 +46,6 @@
     owner: "{{ solana_user }}"
     group: "{{ solana_user }}"
     mode: '0755'
-  when: not watchtower_bin.stat.exists
+  when:
+    - not watchtower_bin.stat.exists
+    - not (jito.enabled | default(false) | bool)
