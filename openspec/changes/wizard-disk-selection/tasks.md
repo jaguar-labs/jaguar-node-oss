@@ -13,4 +13,4 @@
 
 - [x] 3.1 e2e matrix updated to the new sequence: select-all + one-role-each ≡ separate; single-disk `all`; hybrid `1,2` → ledger / accounts,snapshots; `none` → classic; invalid selection (unknown index, >3) re-prompts; duplicate-role and missing-role paths; one-disk `skip`-equivalent (select `none`) proves the old trap is gone
 - [x] 3.2 Round-trip: sample regeneration empty diff; manual-mode assignment still generates the setup script
-- [ ] 3.3 shellcheck + yamllint clean; commit, push, CI green
+- [x] 3.3 shellcheck + yamllint clean; commit, push, CI green
