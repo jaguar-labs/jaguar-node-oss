@@ -6,7 +6,7 @@ TBD - created by syncing change `modernize-safety`. Governs how secret values co
 ## Requirements
 
 ### Requirement: Secrets are stored only in an encrypted vault file
-All private secret values consumed by playbooks — currently `pager_duty_key` — SHALL live in an Ansible Vault encrypted file (`vault/secrets.yaml`) loaded via `vars_files`, and SHALL NOT appear in plaintext in any git-tracked file. Public/shared credentials — `solana_metrics_user`/`solana_metrics_password` (the per-cluster write credentials published in the Anza docs) and `telegraf_username`/`telegraf_password` (shared community metrics-backend values) — MAY appear in plaintext as role/example defaults; the vault file overrides them (play `vars_files` beat role defaults) for operators whose backends use private credentials.
+All private secret values consumed by playbooks — currently `pager_duty_key` — SHALL live in an Ansible Vault encrypted file (`vault/secrets.yaml`) loaded via `vars_files`, and SHALL NOT appear in plaintext in any git-tracked file. Public constants stay out of the vault: the Solana metrics credentials (public per-cluster values from the Anza clusters page) are baked into generated playbooks per cluster by the wizard, and `telegraf_username`/`telegraf_password` (shared community values) are role defaults — operators with private metrics backends MAY add the telegraf keys to their vault, which overrides the defaults (play `vars_files` beat role defaults).
 
 #### Scenario: Playbook run with vault
 - **WHEN** the operator runs the playbook with `--ask-vault-pass` or `--vault-password-file`

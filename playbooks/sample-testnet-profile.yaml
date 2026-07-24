@@ -133,7 +133,7 @@
     rpc_port: 8899
     rpc_bind_address: "127.0.0.1"
     expected_genesis_hash: "4uhcVJyU9pJkvQyS88uRDiswHXSCkY3zQawwpjk2NsNY"
-    solana_metrics_url: "https://metrics.solana.com:8086,db=tds,u={{ solana_metrics_user }},p={{ solana_metrics_password }}"
+    solana_metrics_url: "https://metrics.solana.com:8086,db=tds,u=testnet_write,p=c4fa841aa918bf8274e3e2a44d77568d9861b3ea"
     validator_identity_pubkey: "AumWK3q6Wj8cFyREQaycsoXTHM1FpLPCcghSnyKLXMPP"
     mostly_confirmed_threshold: 0.45 4 0 24
     # staked nodes overrides

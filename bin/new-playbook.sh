@@ -54,6 +54,8 @@ done
 preset_testnet_genesis="4uhcVJyU9pJkvQyS88uRDiswHXSCkY3zQawwpjk2NsNY"
 preset_testnet_remote_rpc="https://api.testnet.solana.com"
 preset_testnet_metrics_db="tds"
+preset_testnet_metrics_user="testnet_write"
+preset_testnet_metrics_password="c4fa841aa918bf8274e3e2a44d77568d9861b3ea"
 preset_testnet_entrypoints="entrypoint.testnet.solana.com:8001 entrypoint2.testnet.solana.com:8001 entrypoint3.testnet.solana.com:8001"
 preset_testnet_known_validators="5D1fNXzvv5NjV1ysLjirC4WY92RNsVH18vjmcszZd8on dDzy5SR3AXdYWVqbDEkVFdvSPCtS9ihF5kJkHCtXoFs Ft5fbkqNa76vnsjYNwjDZUXoTWpP7VYm3mtsaQckQADN eoKpUABi59aT4rR9HGS3LcMecfut9x7zJyodWWP43YQ 9QxCLckBiJc783jnMvXZubK4wH86Eqqvashtrwvcsgkv"
 preset_testnet_jito_tip_payment="GJHtFqM9agxPmkeKjHny6qiRKrXZALvvFGiKf11QE7hy"
@@ -66,6 +68,8 @@ preset_testnet_jito_ntp="ntp.dallas.jito.wtf"
 preset_mainnet_genesis="5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d"
 preset_mainnet_remote_rpc="https://api.mainnet-beta.solana.com"
 preset_mainnet_metrics_db="mainnet-beta"
+preset_mainnet_metrics_user="mainnet-beta_write"
+preset_mainnet_metrics_password="password"
 preset_mainnet_entrypoints="entrypoint.mainnet-beta.solana.com:8001 entrypoint2.mainnet-beta.solana.com:8001 entrypoint3.mainnet-beta.solana.com:8001"
 preset_mainnet_known_validators="7Np41oeYqPefeNQEHSv1UDhYrehxin3NStELsSKCT4K2 GdnSyH3YtwcxFvQrVVJMm1JhTS4QVX7MFsX56uJLUfiZ DE1bawNcRJB9rVm3buyMVfr8mBEoyyu73NBovf2oXJsJ CakcnaRDHka2gXyfbEd2d3xsvkJkqsLw2akB3zsN1D2S"
 preset_mainnet_jito_tip_payment="T1pyyaTNZsKv2WcRAB8oVnk93mLJw2XzjtVYqCsaHqt"
@@ -490,6 +494,8 @@ awk \
   -v GENESIS_HASH="$(p genesis)" \
   -v REMOTE_RPC="$(p remote_rpc)" \
   -v METRICS_DB="$(p metrics_db)" \
+  -v METRICS_USER="$(p metrics_user)" \
+  -v METRICS_PASSWORD="$(p metrics_password)" \
   -v ENTRYPOINTS_BLOCK="$ENTRYPOINTS_BLOCK" \
   -v KNOWN_VALIDATORS_BLOCK="$KNOWN_VALIDATORS_BLOCK" \
   -v JITO_ENABLED="$JITO_ENABLED" \
@@ -521,6 +527,8 @@ awk \
     gsub(/@@GENESIS_HASH@@/, GENESIS_HASH, line)
     gsub(/@@REMOTE_RPC@@/, REMOTE_RPC, line)
     gsub(/@@METRICS_DB@@/, METRICS_DB, line)
+    gsub(/@@METRICS_USER@@/, METRICS_USER, line)
+    gsub(/@@METRICS_PASSWORD@@/, METRICS_PASSWORD, line)
     gsub(/@@JITO_ENABLED@@/, JITO_ENABLED, line)
     gsub(/@@JITO_TIP_PAYMENT@@/, JITO_TIP_PAYMENT, line)
     gsub(/@@JITO_TIP_DISTRIBUTION@@/, JITO_TIP_DISTRIBUTION, line)
