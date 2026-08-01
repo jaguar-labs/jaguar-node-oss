@@ -15,10 +15,8 @@ User={{ solana_user }}
 LimitNOFILE=2024000
 LimitMEMLOCK=2000000000
 LogRateLimitIntervalSec=0
-{% if xdp.enabled | default(false) %}
-CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN CAP_BPF CAP_PERFMON
 AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN CAP_BPF CAP_PERFMON
-{% endif %}
+CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN CAP_BPF CAP_PERFMON
 Environment="PATH=/bin:/usr/bin:{{ env_path }}"
 ExecStart="/home/{{ solana_user }}/start-node.sh"
 
