@@ -25,4 +25,4 @@
 
 - [x] 5.1 e2e: alpenglow generation — playbook parses; presets, port range, empty known validators, `jito.enabled: False`, shred/bank-hash values present; start template selected correctly (static render check of the template branch)
 - [x] 5.2 Round-trip: testnet sample regeneration byte-identical (port-range token neutrality); mainnet spot-check unchanged
-- [ ] 5.3 shellcheck (wizard + build-alpenglow.sh) + yamllint clean; commit, push, CI green
+- [x] 5.3 shellcheck (wizard + build-alpenglow.sh) + yamllint clean; commit, push, CI green
