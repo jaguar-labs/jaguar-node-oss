@@ -20,7 +20,7 @@ The wizard SHALL prompt for: validator name, cluster (`testnet`, `mainnet`, or `
 - **THEN** no Jito prompts appear, the generated playbook has `jito.enabled: False`, and the shred-version/bank-hash prompts appear with preset defaults and a warning that they change on cluster restarts
 
 ### Requirement: Cluster choice supplies correct presets
-Selecting a cluster SHALL auto-fill, without prompting: gossip entrypoints, known validators (empty for `alpenglow`), expected genesis hash, remote cluster RPC address, solana metrics database parameters, the dynamic port range (`8000-10000` for testnet/mainnet, `9000-12500` for alpenglow), and — when Jito is enabled — the cluster-appropriate block-engine URL, shred receiver address, tip payment/distribution program pubkeys, merkle root upload authority, and Jito NTP server.
+Selecting a cluster SHALL auto-fill, without prompting: gossip entrypoints, known validators (empty for `alpenglow`), expected genesis hash, remote cluster RPC address, solana metrics database parameters, the dynamic port range (`8000-10000` for testnet/mainnet, `9000-12500` for alpenglow), the agave version (`solana_version`: `4.1.0-beta.3` for testnet/mainnet, `4.2.0-beta.0` for alpenglow), and — when Jito is enabled — the cluster-appropriate block-engine URL, shred receiver address, tip payment/distribution program pubkeys, merkle root upload authority, and Jito NTP server.
 
 #### Scenario: Testnet presets
 - **WHEN** the operator selects `testnet`
