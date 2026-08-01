@@ -64,6 +64,8 @@ preset_testnet_jito_merkle_auth="7T4inmPmtNBX3MhLwJ9hFsSMnGJYYkKioVABSNTWVRuS"
 preset_testnet_jito_shred_receiver="64.130.35.224:1002"
 preset_testnet_jito_regions="ny dallas"
 preset_testnet_jito_ntp="ntp.dallas.jito.wtf"
+preset_testnet_port_range="8000-10000"
+preset_testnet_solana_version="4.1.0-beta.3"
 
 preset_mainnet_genesis="5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d"
 preset_mainnet_remote_rpc="https://api.mainnet-beta.solana.com"
@@ -78,6 +80,27 @@ preset_mainnet_jito_merkle_auth="GZctHpWXmsZC1YHACTGGcHhYxjdRqQvTpYkb9LMvxDib"
 preset_mainnet_jito_shred_receiver="141.98.216.96:1002"
 preset_mainnet_jito_regions="ny amsterdam dublin frankfurt london slc singapore tokyo"
 preset_mainnet_jito_ntp="ntp.dallas.jito.wtf"
+preset_mainnet_port_range="8000-10000"
+preset_mainnet_solana_version="4.1.0-beta.3"
+
+# Alpenglow test cluster — VOLATILE test-cluster values, last verified: 2026-08
+# (entrypoints, shred version and bank hash change on cluster restarts).
+preset_alpenglow_genesis="HtRW7y9hJZaEBgH8cvUomQQjaXY5vM8J54nqbZJz7MjW"
+preset_alpenglow_remote_rpc="http://185.8.106.234:8899"
+preset_alpenglow_metrics_db="alpenglow-testnet"
+preset_alpenglow_metrics_user="ag"
+preset_alpenglow_metrics_password='!d.tWEViQRhhP.*be9!a'
+preset_alpenglow_entrypoints="64.130.37.11:8000 213.239.141.16:8001"
+preset_alpenglow_known_validators=""
+preset_alpenglow_port_range="9000-12500"
+preset_alpenglow_solana_version="4.2.0-beta.0"
+# no Jito on alpenglow — empty values keep the preset lookup total
+preset_alpenglow_jito_tip_payment=""
+preset_alpenglow_jito_tip_distribution=""
+preset_alpenglow_jito_merkle_auth=""
+preset_alpenglow_jito_shred_receiver=""
+preset_alpenglow_jito_regions=""
+preset_alpenglow_jito_ntp=""
 
 # ---------------------------------------------------------------- prompt helpers
 # Read from the terminal when there is one, else stdin (enables scripted testing).
@@ -127,8 +150,8 @@ prompt_valid "Validator name (slug, used in filename and metrics)" "" "$RE_SLUG"
 VALIDATOR_NAME="$REPLY"
 
 while :; do
-  prompt "Cluster (testnet/mainnet)" "testnet"
-  case "$REPLY" in testnet|mainnet) CLUSTER="$REPLY"; break ;; *) echo "  Invalid: must be testnet or mainnet" ;; esac
+  prompt "Cluster (testnet/mainnet/alpenglow)" "testnet"
+  case "$REPLY" in testnet|mainnet|alpenglow) CLUSTER="$REPLY"; break ;; *) echo "  Invalid: must be testnet, mainnet or alpenglow" ;; esac
 done
 
 IDENTITY_DEFERRED=0
@@ -339,7 +362,12 @@ LOG_PATH="$REPLY"
 # cluster presets (indirect expansion off the chosen cluster)
 p() { local v="preset_${CLUSTER}_$1"; printf '%s' "${!v}"; }
 
-if prompt_yn "Enable Jito MEV?" "y"; then
+JITO_ENABLED="False"
+JITO_COMMISSION_BPS="0"
+JITO_BLOCK_ENGINE_URL=""
+if [ "$CLUSTER" = "alpenglow" ]; then
+  echo "Jito is not available on the alpenglow cluster — disabled."
+elif prompt_yn "Enable Jito MEV?" "y"; then
   JITO_ENABLED="True"
   default_bps=0; [ "$CLUSTER" = "mainnet" ] && default_bps=800
   prompt_valid "Jito commission (bps)" "$default_bps" "$RE_BPS" "0-9999"
@@ -357,10 +385,18 @@ if prompt_yn "Enable Jito MEV?" "y"; then
     echo "  NOTE: shred_receiver_address preset is the NY endpoint; adjust it in the"
     echo "  generated playbook for region '$JITO_REGION' (see Jito docs)."
   fi
-else
-  JITO_ENABLED="False"
-  JITO_COMMISSION_BPS="0"
-  JITO_BLOCK_ENGINE_URL=""
+fi
+
+ALPENGLOW_ENABLED="False"
+ALPENGLOW_SHRED_VERSION=""
+ALPENGLOW_BANK_HASH=""
+if [ "$CLUSTER" = "alpenglow" ]; then
+  ALPENGLOW_ENABLED="True"
+  echo "NOTE: shred version and bank hash change when the alpenglow cluster restarts — check the latest values."
+  prompt_valid "Expected shred version" "10638" '^[0-9]+$' "must be numeric"
+  ALPENGLOW_SHRED_VERSION="$REPLY"
+  prompt_valid "Expected bank hash" "EXrkvP5Y6GG1qdbqU8LVPZqtNYNuWKEZFVARxF9TQh8H" "$RE_PUBKEY" "must be a base58 hash"
+  ALPENGLOW_BANK_HASH="$REPLY"
 fi
 
 if prompt_yn "Enable XDP retransmit?" "n"; then
@@ -406,9 +442,10 @@ if [ -e "$OUTPUT_FILE" ] && [ "$FORCE" -ne 1 ]; then
   exit 1
 fi
 
-yaml_list_block() { # yaml_list_block <space separated items> -> 6-space indented "- item" lines
+yaml_list_block() { # yaml_list_block <space separated items> -> 6-space indented "- item" lines ([] when empty)
   local out="" item
   for item in $1; do out+="      - ${item}"$'\n'; done
+  if [ -z "$out" ]; then printf '      []'; return; fi
   printf '%s' "${out%$'\n'}"
 }
 
@@ -446,6 +483,11 @@ awk \
   -v SNAPSHOTS_PATH="$SNAPSHOTS_PATH" \
   -v LOG_PATH="$LOG_PATH" \
   -v GENESIS_HASH="$(p genesis)" \
+  -v SOLANA_VERSION="$(p solana_version)" \
+  -v DYNAMIC_PORT_RANGE="$(p port_range)" \
+  -v ALPENGLOW_ENABLED="$ALPENGLOW_ENABLED" \
+  -v ALPENGLOW_SHRED_VERSION="$ALPENGLOW_SHRED_VERSION" \
+  -v ALPENGLOW_BANK_HASH="$ALPENGLOW_BANK_HASH" \
   -v REMOTE_RPC="$(p remote_rpc)" \
   -v METRICS_DB="$(p metrics_db)" \
   -v METRICS_USER="$(p metrics_user)" \
@@ -477,6 +519,11 @@ awk \
     gsub(/@@SNAPSHOTS_PATH@@/, SNAPSHOTS_PATH, line)
     gsub(/@@LOG_PATH@@/, LOG_PATH, line)
     gsub(/@@GENESIS_HASH@@/, GENESIS_HASH, line)
+    gsub(/@@SOLANA_VERSION@@/, SOLANA_VERSION, line)
+    gsub(/@@DYNAMIC_PORT_RANGE@@/, DYNAMIC_PORT_RANGE, line)
+    gsub(/@@ALPENGLOW_ENABLED@@/, ALPENGLOW_ENABLED, line)
+    gsub(/@@ALPENGLOW_SHRED_VERSION@@/, ALPENGLOW_SHRED_VERSION, line)
+    gsub(/@@ALPENGLOW_BANK_HASH@@/, ALPENGLOW_BANK_HASH, line)
     gsub(/@@REMOTE_RPC@@/, REMOTE_RPC, line)
     gsub(/@@METRICS_DB@@/, METRICS_DB, line)
     gsub(/@@METRICS_USER@@/, METRICS_USER, line)
@@ -598,4 +645,10 @@ if [ "$VOTE_DEFERRED" -eq 1 ]; then
   echo "       solana create-vote-account /home/solana/.secrets/vote-account-keypair.json \\"
   echo "         /home/solana/.secrets/funded-validator-keypair.json <WITHDRAWER_ADDRESS>"
   echo "     Until then the validator cannot vote and watchtower will alert — that is expected."
+fi
+if [ "$CLUSTER" = "alpenglow" ]; then
+  echo "  6. Alpenglow: after provisioning, build the validator with ~/build-alpenglow.sh"
+  echo "     (default ref v4.2.0-beta.0), then ~/build-solana-cli.sh for the CLI tools."
+  echo "     Presets (entrypoints, shred version, bank hash) are volatile test-cluster"
+  echo "     values (last verified 2026-08) — re-check them after cluster restarts."
 fi

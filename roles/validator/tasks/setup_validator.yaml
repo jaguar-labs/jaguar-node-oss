@@ -9,7 +9,20 @@
     owner: "{{ solana_user }}"
     group: "{{ solana_user }}"
     mode: "0755"
-  when: not jito.enabled
+  when: not jito.enabled and not (alpenglow.enabled | default(false))
+  notify: restart solana-validator
+
+- name: create startup script for alpenglow
+  become: true
+  become_user: "{{ solana_user }}"
+  become_method: sudo
+  template:
+    src: start-node-alpenglow.sh.j2
+    dest: "{{ solana_home }}/start-node.sh"
+    owner: "{{ solana_user }}"
+    group: "{{ solana_user }}"
+    mode: "0755"
+  when: alpenglow.enabled | default(false)
   notify: restart solana-validator
 
 - name: create startup script for jito
@@ -22,5 +35,5 @@
     owner: "{{ solana_user }}"
     group: "{{ solana_user }}"
     mode: "0755"
-  when: jito.enabled
+  when: jito.enabled and not (alpenglow.enabled | default(false))
   notify: restart solana-validator

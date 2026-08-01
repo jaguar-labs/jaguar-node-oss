@@ -24,6 +24,15 @@
     owner: "{{ solana_user }}"
     group: "{{ solana_user }}"
 
+- name: Create alpenglow build script
+  copy:
+    src: build-alpenglow.sh
+    dest: "{{ solana_home }}/build-alpenglow.sh"
+    mode: 0755
+    owner: "{{ solana_user }}"
+    group: "{{ solana_user }}"
+  when: alpenglow.enabled | default(false)
+
 - name: Remove legacy pin-poh.sh (superseded by --experimental-poh-pinned-cpu-core)
   file:
     path: "{{ solana_home }}/pin-poh.sh"

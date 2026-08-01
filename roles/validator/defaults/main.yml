@@ -15,6 +15,8 @@ jito:
   commission_bps: 800
   block_engine_url: https://ny.mainnet.block-engine.jito.wtf
   shred_receiver_address: 141.98.216.96:1002
+alpenglow:
+  enabled: false
 xdp:
   enabled: false
   interface: ""

@@ -51,6 +51,13 @@
           - jito.block_engine_url is defined
           - jito.shred_receiver_address is defined
       when: jito.enabled | bool
+    - name: Ensure alpenglow variables are set if alpenglow is enabled
+      assert:
+        that:
+          - alpenglow.expected_shred_version | string | length > 0
+          - alpenglow.expected_bank_hash | length > 0
+        fail_msg: "alpenglow requires expected_shred_version and expected_bank_hash — they change on cluster restarts, check the latest values"
+      when: alpenglow.enabled | bool
     - name: Validate XDP prerequisites
       when: xdp.enabled | default(false)
       block:
@@ -84,12 +91,12 @@
     # Storage is configured as LOCATIONS only. Formatting and mounting happen
     # via the wizard-generated disk-setup-<name>.sh, run on the host as root
     # BEFORE this playbook. Ansible never touches block devices.
-    solana_version: "4.1.0-beta.3"
-    watch_tower_version: "4.1.0-beta.3"
+    solana_version: "@@SOLANA_VERSION@@"
+    watch_tower_version: "@@SOLANA_VERSION@@"
     solana_user: solana
     solana_home: "/home/solana"
     secrets_path: "/home/solana/.secrets"
-    dynamic_port_range: "8000-10000"
+    dynamic_port_range: "@@DYNAMIC_PORT_RANGE@@"
     validator_name: @@VALIDATOR_NAME@@
     ledger_path: "@@LEDGER_PATH@@"
     accounts_path: "@@ACCOUNTS_PATH@@"
@@ -132,6 +139,10 @@
       ring_rx: 512
       ring_tx: 512
       combined_queues: ""            # blank => count of retransmit_cpu_cores
+    alpenglow:
+      enabled: @@ALPENGLOW_ENABLED@@
+      expected_shred_version: "@@ALPENGLOW_SHRED_VERSION@@"   # changes on cluster restarts
+      expected_bank_hash: "@@ALPENGLOW_BANK_HASH@@"           # changes on cluster restarts
     doublezero:
       enabled: false
       cluster: "{{ cluster_environment }}"   # "testnet" or "mainnet"

@@ -59,7 +59,10 @@
   become_method: sudo
   vars:
     agave_release_dir: "{{ solana_home }}/.local/share/solana/install/releases/{{ solana_version }}/solana-release"
-    agave_build_flags: "{{ '--no-build-validator-bins' if (jito.enabled | default(false) | bool) else '' }}"
+    # jito and alpenglow hosts get their validator from build-jito.sh /
+    # build-alpenglow.sh respectively — node-base builds CLI tools only
+    agave_cli_only: "{{ (jito.enabled | default(false) | bool) or (alpenglow.enabled | default(false) | bool) }}"
+    agave_build_flags: "{{ '--no-build-validator-bins' if agave_cli_only else '' }}"
   shell: |
     set -euo pipefail
     source {{ solana_home }}/.cargo/env
