@@ -29,6 +29,7 @@ begins_with_short_option()
 
 # THE DEFAULTS INITIALIZATION - POSITIONALS
 _positionals=()
+_arg_tag_version="v4.1.0-beta.3-jito"
 # THE DEFAULTS INITIALIZATION - OPTIONALS
 
 
@@ -70,8 +71,7 @@ parse_commandline()
 handle_passed_args_count()
 {
 	local _required_args_string="'tag-version'"
-	test "${_positionals_count}" -ge 1 || _PRINT_HELP=yes die "FATAL ERROR: Not enough positional arguments - we require exactly 1 (namely: $_required_args_string), but got only ${_positionals_count}." 1
-	test "${_positionals_count}" -le 1 || _PRINT_HELP=yes die "FATAL ERROR: There were spurious positional arguments --- we expect exactly 1 (namely: $_required_args_string), but got ${_positionals_count} (the last one was: '${_last_positional}')." 1
+	test "${_positionals_count}" -le 1 || _PRINT_HELP=yes die "FATAL ERROR: There were spurious positional arguments --- we expect at most 1 (namely: $_required_args_string), but got ${_positionals_count} (the last one was: '${_last_positional}')." 1
 }
 
 
@@ -140,5 +140,10 @@ CI_COMMIT=$(git rev-parse HEAD) scripts/cargo-install-all.sh --validator-only ~/
 rm -rf "$HOME"/.local/share/solana/install/active_release
 
 ln -sf /home/solana/.local/share/solana/install/releases/"$TAG" "$HOME"/.local/share/solana/install/active_release
+
+if [ ! -x "$HOME/.local/share/solana/install/releases/$TAG/bin/solana" ]; then
+  echo "NOTE: the jito --validator-only build has no solana CLI tools."
+  echo "      Run ~/build-solana-cli.sh to build and install them alongside the validator."
+fi
 
 rm -rf "$HOME"/jito-solana

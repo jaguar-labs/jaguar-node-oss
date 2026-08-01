@@ -1,0 +1,12 @@
+---
+# Ansible collection dependencies.
+# Install with: ansible-galaxy collection install -r requirements.yml
+#
+# Modules consumed from each collection:
+#   community.general : filesystem (validator/disks_mount), cargo (alerting)
+#   ansible.posix     : sysctl (common), mount (validator/disks_mount, ramdisk)
+collections:
+  - name: community.general
+    version: ">=8.0.0,<11.0.0"
+  - name: ansible.posix
+    version: ">=1.5.0,<3.0.0"

@@ -1,4 +1,31 @@
 ---
+- name: Check solana CLI is present in env_path
+  stat:
+    path: "{{ env_path }}/solana"
+  register: solana_cli_bin
+
+- name: Assert solana CLI is available
+  assert:
+    that:
+      - solana_cli_bin.stat.exists
+    fail_msg: >-
+      {{ env_path }}/solana not found. If active_release points at a jito
+      release built with --validator-only, copy the CLI tools in (re-run
+      build-jito.sh, or cp -n from a releases/<version>/solana-release/bin),
+      or re-run the playbook so node-base builds the CLI from source.
+
+# the CDN installer used to add this to .profile as a side effect; neither the
+# source build nor manual tarball installs do, so ensure it on every run
+- name: Ensure active_release bin is on the solana user PATH
+  become: yes
+  lineinfile:
+    path: "{{ solana_home }}/.profile"
+    line: 'export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"'
+    create: yes
+    owner: "{{ solana_user }}"
+    group: "{{ solana_user }}"
+    mode: '0644'
+
 - name: Check if validator_keypair.json exists
   stat:
     path: "{{ secrets_path }}/funded-validator-keypair.json"
@@ -12,6 +39,58 @@
   environment:
     PATH: "{{ env_path }}"
   when: not funded_validator_keypair.stat.exists
+
+# deferred-key backfill: an empty pubkey var means "fill me from the host
+# keypair" — set_fact outranks play vars, so alerting/monitoring render the
+# real values. Supplied (non-empty) pubkeys are never touched.
+- name: Read the generated identity pubkey
+  shell: solana-keygen pubkey {{ secrets_path }}/funded-validator-keypair.json
+  become: yes
+  become_user: "{{ solana_user }}"
+  become_method: sudo
+  environment:
+    PATH: "{{ env_path }}"
+  register: generated_identity_pubkey
+  changed_when: false
+  when: validator_identity_pubkey | length == 0
+
+- name: Fill validator_identity_pubkey from the generated keypair
+  set_fact:
+    validator_identity_pubkey: "{{ generated_identity_pubkey.stdout | trim }}"
+  when: validator_identity_pubkey | length == 0
+
+- name: Check if vote-account-keypair.json exists (deferred vote account)
+  stat:
+    path: "{{ secrets_path }}/vote-account-keypair.json"
+  register: vote_account_keypair
+  when: vote_account_pubkey | length == 0
+
+- name: Create vote account keypair (deferred vote account)
+  shell: solana-keygen new -s --no-bip39-passphrase -o {{ secrets_path }}/vote-account-keypair.json
+  become: yes
+  become_user: "{{ solana_user }}"
+  become_method: sudo
+  environment:
+    PATH: "{{ env_path }}"
+  when:
+    - vote_account_pubkey | length == 0
+    - not vote_account_keypair.stat.exists
+
+- name: Read the generated vote account pubkey
+  shell: solana-keygen pubkey {{ secrets_path }}/vote-account-keypair.json
+  become: yes
+  become_user: "{{ solana_user }}"
+  become_method: sudo
+  environment:
+    PATH: "{{ env_path }}"
+  register: generated_vote_pubkey
+  changed_when: false
+  when: vote_account_pubkey | length == 0
+
+- name: Fill vote_account_pubkey from the generated keypair
+  set_fact:
+    vote_account_pubkey: "{{ generated_vote_pubkey.stdout | trim }}"
+  when: vote_account_pubkey | length == 0
 
 - name: Create a validator keypair symblink
   ansible.builtin.file:

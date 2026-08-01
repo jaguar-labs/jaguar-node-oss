@@ -1,0 +1,23 @@
+---
+- name: DZ | Check whether doublezero is already installed
+  command: dpkg-query -W -f='${Status}' doublezero
+  register: dz_pkg
+  changed_when: false
+  failed_when: false
+  check_mode: no
+
+- name: DZ | Configure Cloudsmith apt repo for {{ doublezero.cluster }}
+  become: yes
+  shell: |
+    set -e
+    curl -1sLf 'https://dl.cloudsmith.io/public/malbeclabs/doublezero{{ "-testnet" if doublezero.cluster == "testnet" else "" }}/setup.deb.sh' | sudo -E bash
+  args:
+    creates: "/etc/apt/sources.list.d/malbeclabs-doublezero{{ '-testnet' if doublezero.cluster == 'testnet' else '' }}.list"
+  when: "'install ok installed' not in dz_pkg.stdout"
+
+- name: DZ | Install doublezero package
+  become: yes
+  apt:
+    name: doublezero
+    state: present
+    update_cache: yes

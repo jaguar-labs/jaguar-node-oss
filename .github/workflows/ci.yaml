@@ -1,0 +1,69 @@
+---
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  yamllint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install yamllint
+        run: pip install yamllint==1.35.1
+      - name: Run yamllint
+        run: yamllint .
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run shellcheck on repo scripts
+        run: shellcheck bin/*.sh
+
+  ansible-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install ansible-lint (pinned, with pinned ansible-core)
+        run: pip install ansible-core==2.17.7 ansible-lint==24.12.2
+      - name: Install collection dependencies
+        run: ansible-galaxy collection install -r requirements.yml
+      - name: Run ansible-lint
+        run: ansible-lint --nocolor
+
+  syntax-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install ansible-core (pinned)
+        run: pip install ansible-core==2.17.7
+      - name: Install collection dependencies
+        run: ansible-galaxy collection install -r requirements.yml
+      - name: Provide dummy vault so vars_files resolves
+        # The real vault/secrets.yaml is never committed; the example documents
+        # the key contract, so it doubles as the CI dummy. --syntax-check only
+        # needs the file to parse. Harmless if a real vault file ever exists.
+        run: |
+          if [ ! -f vault/secrets.yaml ]; then
+            cp vault/secrets.example.yaml vault/secrets.yaml
+          fi
+          echo "ci-dummy-password" > /tmp/vault-pass
+      - name: Syntax-check every playbook
+        run: |
+          set -euo pipefail
+          for pb in playbooks/*.yaml; do
+            echo "::group::${pb}"
+            ansible-playbook --syntax-check -i inventory --vault-password-file /tmp/vault-pass "${pb}"
+            echo "::endgroup::"
+          done

@@ -1,0 +1,7 @@
+---
+doublezero:
+  enabled: false
+  cluster: "{{ cluster_environment | default('mainnet') }}"   # "testnet" or "mainnet"
+  user: "{{ solana_user }}"
+  metrics_enabled: true
+  metrics_addr: "localhost:2113"

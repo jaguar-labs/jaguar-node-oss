@@ -6,6 +6,7 @@
     mode: 0644
     owner: root
     group: root
+  notify: restart solana-validator
 
 - name: Enable solana service
   systemd:

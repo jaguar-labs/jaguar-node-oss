@@ -12,7 +12,7 @@ def calculate_output_data(config: ValidatorConfig):
     measurements = []
 
     for gossip in data:
-        measurement = measurement_from_fields("gossip", gossip, config)
+        measurement = measurement_from_fields("gossip", gossip, {}, config)
         measurements.append(measurement)
 
     return measurements

@@ -34,7 +34,7 @@ ansible-playbook playbooks/<profile>.yaml -i inventory -e host=local --connectio
 - **system-optimization**: Tuned profile, CPU isolation for PoH thread, kernel parameters
 - **common**: Packages, firewall (iptables), fail2ban, sysctl tuning, chrony NTP, solana user creation
 - **node-base**: Solana CLI install (via `agave-install`), systemd service, logrotate, keypair setup
-- **validator**: Startup script generation (Jito vs non-Jito), disk/ramdisk mounts, utility scripts (node-transition, pin-poh, dl-snapshots)
+- **validator**: Startup script generation (Jito vs non-Jito), storage directory creation (never formats/mounts — disks are prepared via the wizard-generated disk-setup script), utility scripts (node-transition, dl-snapshots)
 - **rpc**: Non-voting RPC node startup script (`--no-voting --full-rpc-api`)
 - **monitoring**: Telegraf + custom Python monitoring library, InfluxDB/TimescaleDB backends
 - **alerting**: `agave-watchtower` with PagerDuty integration
@@ -56,7 +56,7 @@ ansible-playbook playbooks/<profile>.yaml -i inventory -e host=local --connectio
 - `/home/solana/.secrets/` — keypairs (0700 permissions)
 - `/home/solana/monitoring/` — Python venv + monitoring scripts
 - `/home/solana/.local/share/solana/install/active_release/bin/` — Solana CLI binaries
-- Storage paths are configurable via `disk_management` / `ramdisk_management` vars
+- Storage paths are configured via `ledger_path` / `accounts_path` / `snapshots_path`; disk format/mount happens only via the wizard-generated `disk-setup-<name>.sh`, never Ansible
 
 ## Conventions
 

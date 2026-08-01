@@ -1,0 +1,37 @@
+---
+# Target bar is the production profile. Every skip below is existing debt,
+# annotated with the modernization track that removes it — when that track
+# lands, its entries MUST be deleted so the rule enforces from then on.
+# New violations of any non-skipped rule fail CI.
+profile: production
+
+exclude_paths:
+  - openspec/
+  - .claude/
+  - .github/
+
+skip_list:
+  # --- idiom-sweep track (FQCN + naming) ---
+  - fqcn[action-core]      # idiom-sweep: use ansible.builtin.* everywhere
+  - fqcn[action]           # idiom-sweep: FQCN for non-builtin modules
+  - name[casing]           # idiom-sweep: capitalize task names
+  - name[play]             # idiom-sweep: name the play
+  - name[missing]          # idiom-sweep: name all tasks
+  - name[template]         # idiom-sweep: jinja placement in task names
+  - schema[tasks]          # idiom-sweep: become_method: sudo -> ansible.builtin.sudo
+  - key-order[task]        # idiom-sweep: name first in task mappings
+  - jinja[spacing]         # idiom-sweep: normalize {{var}} spacing
+  # --- idiom-sweep track (shell/command hygiene) ---
+  - no-changed-when        # idiom-sweep: add changed_when/creates to command/shell
+  - command-instead-of-shell    # idiom-sweep: use command unless shell features needed
+  - command-instead-of-module   # idiom-sweep: replace commands with modules
+  - no-free-form           # idiom-sweep: structured module args
+  - risky-shell-pipe       # idiom-sweep: set -o pipefail in shell pipes
+  - ignore-errors          # idiom-sweep: replace with failed_when conditions
+  # --- idiom-sweep track (task hygiene) ---
+  - package-latest         # idiom-sweep: pin state=present instead of latest
+  - risky-file-permissions # idiom-sweep: explicit mode on file/copy tasks
+  - no-relative-paths      # idiom-sweep: role-relative src paths
+  - var-naming[no-role-prefix]  # idiom-sweep: shared vars move to group_vars/ (deliberate cross-role vars today, see CLAUDE.md)
+  # --- accepted (not planned for removal) ---
+  - role-name              # roles use dashes (system-optimization, node-base); not published to Galaxy

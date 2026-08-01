@@ -1,0 +1,34 @@
+#!/bin/bash
+export SOLANA_METRICS_CONFIG="host={{ solana_metrics_url }}"
+exec {{ env_path }}/agave-validator \
+    --identity {{ secrets_path }}/validator-keypair.json \
+{% if vote_account_pubkey %}
+    --vote-account {{ vote_account_pubkey }} \
+{% else %}
+    --vote-account {{ secrets_path }}/vote-account-keypair.json \
+{% endif %}
+    --rpc-port {{ rpc_port }} \
+    --full-rpc-api \
+    --log {{ validator_log_path }}/solana-validator.log \
+    --ledger {{ ledger_path }} \
+    --accounts {{ accounts_path }} \
+    --snapshots {{ snapshots_path }} \
+    --dynamic-port-range {{ dynamic_port_range }} \
+{% for entrypoint in entrypoints %}
+    --entrypoint {{ entrypoint }} \
+{% endfor %}
+    --expected-genesis-hash {{ expected_genesis_hash }} \
+    --expected-shred-version {{ alpenglow.expected_shred_version }} \
+    --expected-bank-hash {{ alpenglow.expected_bank_hash }} \
+{% if poh_pinned_cpu_core is defined %}
+    --experimental-poh-pinned-cpu-core {{ poh_pinned_cpu_core }} \
+{% endif %}
+{% if xdp.enabled %}
+    --experimental-retransmit-xdp-interface {{ xdp.interface }} \
+    --experimental-retransmit-xdp-cpu-cores {{ xdp.retransmit_cpu_cores }} \
+{% if xdp.zero_copy %}
+    --experimental-retransmit-xdp-zero-copy \
+{% endif %}
+{% endif %}
+    --limit-ledger-size \
+    --do-not-require-vote-history

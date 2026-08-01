@@ -1,0 +1,88 @@
+---
+- name: XDP | Ensure ethtool is installed
+  become: yes
+  apt:
+    name: ethtool
+    state: present
+
+- name: XDP | Check whether the interface is a bond master
+  stat:
+    path: "/sys/class/net/{{ xdp.interface }}/bonding"
+  register: xdp_iface_bonding
+
+- name: XDP | Assert interface is a physical NIC, not a bond
+  assert:
+    that:
+      - not xdp_iface_bonding.stat.exists
+    fail_msg: >-
+      xdp.interface ({{ xdp.interface }}) is a bond master; ethtool ring/queue
+      tuning and XDP need a physical member NIC. Pick one from
+      /sys/class/net/{{ xdp.interface }}/bonding/slaves and set xdp.interface
+      to it.
+
+- name: XDP | Read NIC driver info
+  command: "ethtool -i {{ xdp.interface }}"
+  register: xdp_nic_driver_raw
+  changed_when: false
+  check_mode: no
+
+- name: XDP | Parse NIC driver name
+  set_fact:
+    xdp_nic_driver: "{{ xdp_nic_driver_raw.stdout | regex_search('driver:\\s+(\\S+)', '\\1') | first }}"
+
+- name: XDP | Assert zero-copy is disabled on bnxt_en driver
+  assert:
+    that:
+      - not (xdp.zero_copy and xdp_nic_driver == 'bnxt_en')
+    fail_msg: "bnxt_en does not support AF_XDP zero-copy; set xdp.zero_copy: false"
+
+- name: XDP | Warn about igb zero-copy kernel requirement
+  debug:
+    msg: "igb driver detected with zero-copy enabled; zero-copy requires kernel 6.14+, host has {{ ansible_kernel }}"
+  when: xdp_nic_driver == 'igb' and xdp.zero_copy
+
+- name: XDP | Compute combined queue count
+  set_fact:
+    xdp_combined_queues: "{{ xdp.combined_queues if (xdp.combined_queues | string | length > 0) else (xdp.retransmit_cpu_cores.split(',') | length) }}"
+
+- name: XDP | Apply NIC ring sizes
+  become: yes
+  command: "ethtool -G {{ xdp.interface }} rx {{ xdp.ring_rx }} tx {{ xdp.ring_tx }}"
+  changed_when: true
+
+- name: XDP | Align combined queue count to retransmit cores
+  become: yes
+  command: "ethtool -L {{ xdp.interface }} combined {{ xdp_combined_queues }}"
+  changed_when: true
+  ignore_errors: yes
+
+- name: XDP | Install NIC-tuning persistence unit
+  become: yes
+  template:
+    src: solana-xdp-nic.service.j2
+    dest: /etc/systemd/system/solana-xdp-nic.service
+    mode: 0644
+    owner: root
+    group: root
+  notify: restart solana-validator
+
+- name: XDP | Enable NIC-tuning persistence unit
+  become: yes
+  systemd:
+    name: solana-xdp-nic
+    enabled: yes
+    daemon_reload: yes
+
+- name: XDP | Read NIC NUMA node
+  command: "cat /sys/class/net/{{ xdp.interface }}/device/numa_node"
+  register: xdp_nic_numa
+  changed_when: false
+  check_mode: no
+
+- name: XDP | Report NUMA topology for operator review
+  debug:
+    msg: >-
+      NIC {{ xdp.interface }} (driver {{ xdp_nic_driver }}) is on NUMA node
+      {{ xdp_nic_numa.stdout }}; verify poh_pinned_cpu_core
+      ({{ poh_pinned_cpu_core | default('unset') }}) and xdp.retransmit_cpu_cores
+      ({{ xdp.retransmit_cpu_cores }}) live on the same node

@@ -1,0 +1,39 @@
+---
+# Block-device preparation (format, mount, fstab) happens exclusively via the
+# wizard-generated disk-setup-<name>.sh, run by the operator on the host BEFORE
+# this playbook. Ansible never touches block devices; this file only guarantees
+# the storage directories exist with the right ownership.
+
+- name: Check storage mount points
+  command: findmnt -n {{ item | dirname }}
+  register: storage_mounts
+  changed_when: false
+  failed_when: false
+  with_items:
+    - "{{ ledger_path }}"
+    - "{{ accounts_path }}"
+    - "{{ snapshots_path }}"
+
+- name: Warn when a storage path is not on a mounted disk
+  debug:
+    msg: >-
+      WARNING: {{ item.item | dirname }} is not a mountpoint — {{ item.item }}
+      will land on the root filesystem. If that is not intentional, run the
+      wizard-generated disk-setup script on this host first.
+  loop: "{{ storage_mounts.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: item.rc != 0
+
+- name: Create storage directories
+  become: yes
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ solana_user }}"
+    group: "{{ solana_user }}"
+    mode: '0755'
+  with_items:
+    - "{{ ledger_path }}"
+    - "{{ accounts_path }}"
+    - "{{ snapshots_path }}"

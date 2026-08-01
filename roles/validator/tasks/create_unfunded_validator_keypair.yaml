@@ -23,4 +23,3 @@
     owner: "{{ solana_user}}"
     group: "{{ solana_user}}"
     state: link
-

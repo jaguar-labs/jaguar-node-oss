@@ -1,0 +1,160 @@
+# CANONICAL PROFILE TEMPLATE — consumed by bin/new-playbook.sh, which replaces
+# every @@TOKEN@@ and writes playbooks/<name>-<cluster>-profile.yaml.
+# playbooks/sample-testnet-profile.yaml is generated from this file; edit here,
+# then regenerate the sample (see README "Create a new validator profile").
+---
+- hosts: all
+  become: yes
+  vars_files:
+    - ../vault/secrets.yaml
+  pre_tasks:
+    - name: Ensure all required variables are set
+      assert:
+        that:
+          - solana_version is defined
+          - solana_user is defined
+          - solana_home is defined
+          - secrets_path is defined
+          - dynamic_port_range is defined
+          - pager_duty_key is defined
+          - validator_name is defined
+          - ledger_path is defined
+          - accounts_path is defined
+          - vote_account_pubkey is defined
+          - cluster_rpc_address is defined
+          - cluster_environment is defined
+          - telegraf_database is defined
+          - telegraf_urls is defined
+          - telegraf_username is defined
+          - telegraf_password is defined
+          - env_path is defined
+          - validator_log_path is defined
+          - rpc_port is defined
+          - rpc_bind_address is defined
+          - expected_genesis_hash is defined
+          - solana_metrics_url is defined
+          - snapshots_path is defined
+          - validator_identity_pubkey is defined
+    - name: Ensure gossip entrypoints are set
+      assert:
+        that:
+          - entrypoints is defined
+          - entrypoints | length > 0
+        fail_msg: "entrypoints must be a non-empty list of cluster gossip entrypoints (host:port); define it in the playbook vars"
+    - name: Ensure jito variables are set if jito is enabled
+      assert:
+        that:
+          - jito.tip_payment_program_pubkey is defined
+          - jito.tip_distribution_program_pubkey is defined
+          - jito.merkle_root_upload_authority is defined
+          - jito.commission_bps is defined
+          - jito.block_engine_url is defined
+          - jito.shred_receiver_address is defined
+      when: jito.enabled | bool
+    - name: Ensure alpenglow variables are set if alpenglow is enabled
+      assert:
+        that:
+          - alpenglow.expected_shred_version | string | length > 0
+          - alpenglow.expected_bank_hash | length > 0
+        fail_msg: "alpenglow requires expected_shred_version and expected_bank_hash — they change on cluster restarts, check the latest values"
+      when: alpenglow.enabled | bool
+    - name: Validate XDP prerequisites
+      when: xdp.enabled | default(false)
+      block:
+        - name: XDP | assert agave version supports XDP
+          assert:
+            that:
+              - solana_version is version('3.0.9', '>=')
+            fail_msg: "XDP requires agave >= 3.0.9; solana_version is {{ solana_version }}"
+        - name: XDP | assert kernel >= 6.8
+          assert:
+            that:
+              - ansible_kernel.split('-')[0] is version('6.8', '>=')
+            fail_msg: "XDP requires kernel >= 6.8 (6.14 for igb zero-copy); host has {{ ansible_kernel }}"
+        - name: XDP | assert interface is set
+          assert:
+            that:
+              - xdp.interface | length > 0
+            fail_msg: "xdp.enabled is true but xdp.interface is empty"
+        - name: XDP | assert PoH core not in retransmit cores
+          assert:
+            that:
+              - (poh_pinned_cpu_core | string) not in xdp.retransmit_cpu_cores.split(',')
+            fail_msg: "poh_pinned_cpu_core ({{ poh_pinned_cpu_core }}) must not appear in xdp.retransmit_cpu_cores ({{ xdp.retransmit_cpu_cores }})"
+        - name: XDP | assert ring sizes are valid powers of 2
+          assert:
+            that:
+              - xdp.ring_rx in [256, 512, 1024, 2048, 4096]
+              - xdp.ring_tx in [256, 512, 1024, 2048, 4096]
+            fail_msg: "xdp.ring_rx/ring_tx must be one of 256/512/1024/2048/4096"
+  vars:
+    # Storage is configured as LOCATIONS only. Formatting and mounting happen
+    # via the wizard-generated disk-setup-<name>.sh, run on the host as root
+    # BEFORE this playbook. Ansible never touches block devices.
+    solana_version: "@@SOLANA_VERSION@@"
+    watch_tower_version: "@@SOLANA_VERSION@@"
+    solana_user: solana
+    solana_home: "/home/solana"
+    secrets_path: "/home/solana/.secrets"
+    dynamic_port_range: "@@DYNAMIC_PORT_RANGE@@"
+    validator_name: @@VALIDATOR_NAME@@
+    ledger_path: "@@LEDGER_PATH@@"
+    accounts_path: "@@ACCOUNTS_PATH@@"
+    snapshots_path: "@@SNAPSHOTS_PATH@@"
+    vote_account_pubkey: "@@VOTE_PUBKEY@@"
+    cluster_rpc_address: "http://127.0.0.1:8899"
+    remote_cluster_rpc_address: "@@REMOTE_RPC@@"
+    cluster_environment: "@@CLUSTER@@"
+    telegraf_database: v_metrics
+    telegraf_urls: http://95.216.207.40:8086
+    env_path: "/home/solana/.local/share/solana/install/active_release/bin"
+    validator_log_path: "@@LOG_PATH@@"
+    rpc_port: 8899
+    rpc_bind_address: "127.0.0.1"
+    expected_genesis_hash: "@@GENESIS_HASH@@"
+    solana_metrics_url: "https://metrics.solana.com:8086,db=@@METRICS_DB@@,u=@@METRICS_USER@@,p=@@METRICS_PASSWORD@@"
+    validator_identity_pubkey: "@@IDENTITY_PUBKEY@@"
+    mostly_confirmed_threshold: 0.45 4 0 24
+    # staked nodes overrides
+    staked_map_id:
+      AumWK3q6Wj8cFyREQaycsoXTHM1FpLPCcghSnyKLXMPP: 100000000000000000
+    known_validators:
+@@KNOWN_VALIDATORS_BLOCK@@
+    entrypoints:
+@@ENTRYPOINTS_BLOCK@@
+    jito:
+      enabled: @@JITO_ENABLED@@
+      tip_payment_program_pubkey: "@@JITO_TIP_PAYMENT@@"
+      tip_distribution_program_pubkey: "@@JITO_TIP_DISTRIBUTION@@"
+      merkle_root_upload_authority: "@@JITO_MERKLE_AUTH@@"
+      commission_bps: @@JITO_COMMISSION_BPS@@
+      block_engine_url: "@@JITO_BLOCK_ENGINE_URL@@"
+      shred_receiver_address: "@@JITO_SHRED_RECEIVER@@"
+      ntp: "@@JITO_NTP@@"
+    xdp:
+      enabled: @@XDP_ENABLED@@
+      interface: "@@XDP_INTERFACE@@"      # must be a bond MEMBER if bonded
+      retransmit_cpu_cores: "@@XDP_RETRANSMIT_CORES@@"  # comma-separated; must not contain poh_pinned_cpu_core
+      zero_copy: true                # set false on bnxt_en NIC drivers
+      ring_rx: 512
+      ring_tx: 512
+      combined_queues: ""            # blank => count of retransmit_cpu_cores
+    alpenglow:
+      enabled: @@ALPENGLOW_ENABLED@@
+      expected_shred_version: "@@ALPENGLOW_SHRED_VERSION@@"   # changes on cluster restarts
+      expected_bank_hash: "@@ALPENGLOW_BANK_HASH@@"           # changes on cluster restarts
+    doublezero:
+      enabled: false
+      cluster: "{{ cluster_environment }}"   # "testnet" or "mainnet"
+      user: "{{ solana_user }}"
+      metrics_enabled: true
+      metrics_addr: "localhost:2113"
+  roles:
+    - role: system-optimization
+    - role: common
+    - role: doublezero
+      when: doublezero.enabled | default(false)
+    - role: node-base
+    - role: validator
+    - role: alerting
+    - role: monitoring

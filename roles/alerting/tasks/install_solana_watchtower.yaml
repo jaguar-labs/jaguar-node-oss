@@ -1,6 +1,33 @@
 ---
+# agave-watchtower is part of the --validator-only build set:
+#   - plain hosts: node-base's full source build provides it in active_release
+#   - jito/alpenglow hosts: it arrives with the operator-run build-jito.sh /
+#     build-alpenglow.sh (node-base only builds CLI tools there), so during
+#     first provisioning it does not exist yet
+# The cargo fallback exists for hosts with neither; --locked is required because
+# beta crates bit-rot on crates.io when unpinned deps re-resolve.
 
-- name: Install Solana watch-tower
+- name: Check for agave-watchtower in active_release
+  stat:
+    path: "{{ env_path }}/agave-watchtower"
+  register: watchtower_bin
+
+- name: Set whether the validator build script supplies watchtower
+  set_fact:
+    watchtower_from_build: "{{ (jito.enabled | default(false) | bool) or (alpenglow.enabled | default(false) | bool) }}"
+
+- name: Note that jito/alpenglow hosts get watchtower from their build script
+  debug:
+    msg: >-
+      agave-watchtower is not in active_release yet — it is built by
+      build-jito.sh / build-alpenglow.sh (validator-only set). The
+      solana-alerting service is enabled but not started; start it after the
+      validator build. No cargo fallback attempted.
+  when:
+    - not watchtower_bin.stat.exists
+    - watchtower_from_build | bool
+
+- name: Install Solana watch-tower (cargo fallback)
   become: true
   become_user: "{{ solana_user }}"
   become_method: sudo
@@ -8,3 +35,22 @@
     executable: "/home/{{ solana_user }}/.cargo/bin/cargo"
     name: agave-watchtower
     version: "{{ watch_tower_version }}"
+    locked: true
+  when:
+    - not watchtower_bin.stat.exists
+    - not (jito.enabled | default(false) | bool)
+
+- name: Expose cargo-installed watchtower in active_release
+  become: true
+  become_user: "{{ solana_user }}"
+  become_method: sudo
+  copy:
+    src: "/home/{{ solana_user }}/.cargo/bin/agave-watchtower"
+    dest: "{{ env_path }}/agave-watchtower"
+    remote_src: yes
+    owner: "{{ solana_user }}"
+    group: "{{ solana_user }}"
+    mode: '0755'
+  when:
+    - not watchtower_bin.stat.exists
+    - not (jito.enabled | default(false) | bool)

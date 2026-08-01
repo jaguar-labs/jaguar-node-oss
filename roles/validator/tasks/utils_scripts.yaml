@@ -16,14 +16,27 @@
     group: "{{ solana_user }}"
   when: jito.enabled
 
-- name: Generate pin-poh.sh from template
-  template:
-    src: pin-poh.sh.j2
-    dest: "{{ solana_home }}/pin-poh.sh"
+- name: Create solana CLI build script
+  copy:
+    src: build-solana-cli.sh
+    dest: "{{ solana_home }}/build-solana-cli.sh"
+    mode: 0755
     owner: "{{ solana_user }}"
     group: "{{ solana_user }}"
-    mode: "0755"
-  when: poh_pinned_cpu_core is defined and poh_pinned_cpu_core
+
+- name: Create alpenglow build script
+  copy:
+    src: build-alpenglow.sh
+    dest: "{{ solana_home }}/build-alpenglow.sh"
+    mode: 0755
+    owner: "{{ solana_user }}"
+    group: "{{ solana_user }}"
+  when: alpenglow.enabled | default(false)
+
+- name: Remove legacy pin-poh.sh (superseded by --experimental-poh-pinned-cpu-core)
+  file:
+    path: "{{ solana_home }}/pin-poh.sh"
+    state: absent
 
 - name: Create mostly_confirmed_threshold
   copy:

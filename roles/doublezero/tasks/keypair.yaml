@@ -1,0 +1,49 @@
+---
+- name: DZ | Resolve user home directory
+  getent:
+    database: passwd
+    key: "{{ doublezero.user }}"
+
+- name: DZ | Set DZ config paths
+  set_fact:
+    dz_config_dir: "{{ getent_passwd[doublezero.user][4] }}/.config/doublezero"
+    dz_keypair_path: "{{ getent_passwd[doublezero.user][4] }}/.config/doublezero/id.json"
+
+- name: DZ | Ensure config directory exists
+  become: yes
+  file:
+    path: "{{ dz_config_dir }}"
+    state: directory
+    owner: "{{ doublezero.user }}"
+    group: "{{ doublezero.user }}"
+    mode: "0700"
+
+- name: DZ | Check whether identity keypair already exists
+  stat:
+    path: "{{ dz_keypair_path }}"
+  register: dz_keypair_stat
+
+- name: DZ | Generate identity keypair (operator must enroll the new pubkey)
+  become: yes
+  become_user: "{{ doublezero.user }}"
+  command: "doublezero keygen --outfile {{ dz_keypair_path }}"
+  when: not dz_keypair_stat.stat.exists
+
+- name: DZ | Tighten permissions on identity keypair
+  become: yes
+  file:
+    path: "{{ dz_keypair_path }}"
+    owner: "{{ doublezero.user }}"
+    group: "{{ doublezero.user }}"
+    mode: "0600"
+
+- name: DZ | Show DoubleZero address (use this to enroll on the DZ network)
+  become: yes
+  become_user: "{{ doublezero.user }}"
+  command: "doublezero address"
+  register: dz_address
+  changed_when: false
+
+- name: DZ | DoubleZero pubkey
+  debug:
+    msg: "DoubleZero identity ({{ dz_keypair_path }}): {{ dz_address.stdout }}"

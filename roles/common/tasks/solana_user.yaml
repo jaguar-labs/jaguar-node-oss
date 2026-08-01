@@ -23,3 +23,17 @@
     state: directory
     mode: '0700'
     owner: "{{ solana_user }}"
+
+# the validator service raises LimitNOFILE via systemd, but interactive
+# sessions (agave-ledger-tool etc.) get the PAM default of 1024 without this;
+# value must not exceed fs.nr_open (tuned sets 1000000)
+- name: 🐸 Raise nofile limit for interactive solana sessions
+  become: yes
+  copy:
+    dest: /etc/security/limits.d/90-solana-nofile.conf
+    content: |
+      {{ solana_user }} soft nofile 1000000
+      {{ solana_user }} hard nofile 1000000
+    owner: root
+    group: root
+    mode: '0644'

@@ -1,0 +1,24 @@
+---
+# Style tightening (truthy values, braces spacing, document-start, EOF newlines)
+# is deferred to the idiom-sweep modernization track; rules below are relaxed to
+# match the existing codebase so CI enforces against NEW violation classes only.
+extends: default
+
+ignore: |
+  openspec/
+  .claude/
+  playbooks/templates/
+
+rules:
+  line-length:
+    max: 200
+  truthy: disable          # idiom-sweep: normalize yes/no/True to true/false, then enable
+  braces:
+    max-spaces-inside: 1   # idiom-sweep: existing "{{ var }}" style inside flow mappings
+  document-start: disable  # idiom-sweep: add --- headers, then enable
+  new-line-at-end-of-file: disable  # idiom-sweep: fix EOF newlines, then enable
+  comments:
+    min-spaces-from-content: 1
+  comments-indentation: disable
+  empty-lines:
+    max: 3
