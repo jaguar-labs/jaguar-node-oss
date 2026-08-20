@@ -27,4 +27,4 @@
 
 - [x] 5.1 Confirm a deliberately broken YAML file on a scratch branch fails yamllint in CI
 - [x] 5.2 Confirm an undefined-variable-style playbook error (e.g. missing vars_files target) fails the syntax-check job
-- [ ] 5.3 Confirm the main branch build is green and the badge renders in the README
+- [x] 5.3 Confirm the main branch build is green and the badge renders in the README
