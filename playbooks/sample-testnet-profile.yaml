@@ -96,7 +96,7 @@
     validator_name: sample
     ledger_path: "/mnt/solana_ledger/ledger"
     accounts_path: "/mnt/solana_accounts/accounts"
-    snapshots_path: "/mnt/solana_snapshots/snapshots"
+    snapshots_path: "/mnt/solana_ledger/ledger"
     vote_account_pubkey: "AumWK3q6Wj8cFyREQaycsoXTHM1FpLPCcghSnyKLXMPP"
     cluster_rpc_address: "http://127.0.0.1:8899"
     remote_cluster_rpc_address: "https://api.testnet.solana.com"

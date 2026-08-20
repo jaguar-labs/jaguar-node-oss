@@ -116,13 +116,63 @@ prompt() { # prompt <question> <default> -> REPLY
   fi
 }
 
+MENU_CHOICE=""
+MENU_INDEX=0
+menu_select() { # menu_select <title> <default-1based> <opt...> -> MENU_CHOICE/MENU_INDEX
+  local title="$1" def="$2"; shift 2
+  local opts=("$@") n=$# sel=$((def-1)) i key seq ans lower
+  if [ "$n" -eq 1 ]; then
+    # single option: nothing to choose — auto-select, consume no input
+    MENU_INDEX=1; MENU_CHOICE="${opts[0]}"
+    echo "$title: ${opts[0]}"
+    return 0
+  fi
+  if [ -t 3 ]; then
+    # interactive: arrow keys (↑/↓) + Enter, default pre-highlighted
+    echo "$title (↑/↓ then Enter):"
+    while :; do
+      for i in "${!opts[@]}"; do
+        if [ "$i" -eq "$sel" ]; then printf '  \e[7m> %s\e[0m\n' "${opts[$i]}"; else printf '    %s\n' "${opts[$i]}"; fi
+      done
+      IFS= read -rsn1 -u 3 key || key=""
+      if [ "$key" = $'\x1b' ]; then
+        IFS= read -rsn2 -u 3 seq || seq=""
+        case "$seq" in
+          '[A') sel=$(( (sel + n - 1) % n )) ;;
+          '[B') sel=$(( (sel + 1) % n )) ;;
+        esac
+      elif [ -z "$key" ]; then
+        break
+      fi
+      printf '\e[%dA' "$n"
+    done
+  else
+    # non-tty fallback: numbered listing; accepts number or label (legacy y/n too)
+    echo "$title:"
+    for i in "${!opts[@]}"; do echo "  $((i+1))) ${opts[$i]}"; done
+    while :; do
+      read -u 3 -rp "Select [$def]: " ans || ans=""
+      ans="${ans:-$def}"
+      lower="${ans,,}"
+      case "$lower" in y) lower="yes" ;; n) lower="no" ;; esac
+      if [[ "$ans" =~ ^[0-9]+$ ]] && [ "$ans" -ge 1 ] && [ "$ans" -le "$n" ]; then
+        sel=$((ans-1)); break
+      fi
+      sel=-1
+      for i in "${!opts[@]}"; do [ "$lower" = "${opts[$i],,}" ] && { sel=$i; break; }; done
+      [ "$sel" -ge 0 ] && break
+      echo "  Invalid choice (number 1-$n or option name)"
+    done
+  fi
+  MENU_INDEX=$((sel+1))
+  MENU_CHOICE="${opts[$sel]}"
+}
+
 prompt_yn() { # prompt_yn <question> <default y|n> -> 0=yes 1=no
-  local ans
-  while :; do
-    prompt "$1 (y/n)" "$2"; ans="${REPLY,,}"
-    case "$ans" in y|yes) return 0 ;; n|no) return 1 ;; esac
-    echo "  Please answer y or n."
-  done
+  local def=1
+  [ "$2" = "n" ] && def=2
+  menu_select "$1" "$def" "yes" "no"
+  [ "$MENU_INDEX" -eq 1 ]
 }
 
 prompt_valid() { # prompt_valid <question> <default> <regex> <error> -> REPLY
@@ -149,10 +199,8 @@ echo
 prompt_valid "Validator name (slug, used in filename and metrics)" "" "$RE_SLUG" "lowercase letters, digits, dashes (max 41 chars)"
 VALIDATOR_NAME="$REPLY"
 
-while :; do
-  prompt "Cluster (testnet/mainnet/alpenglow)" "testnet"
-  case "$REPLY" in testnet|mainnet|alpenglow) CLUSTER="$REPLY"; break ;; *) echo "  Invalid: must be testnet, mainnet or alpenglow" ;; esac
-done
+menu_select "Cluster" 1 "testnet" "mainnet" "alpenglow"
+CLUSTER="$MENU_CHOICE"
 
 IDENTITY_DEFERRED=0
 while :; do
@@ -215,146 +263,97 @@ if [ "${#UNUSED_DISKS[@]}" -gt 0 ]; then
   echo
 fi
 
-# device prompt defaults: detected unused disks in order, else static fallbacks
-DEFAULT_DEV1="${UNUSED_DISKS[0]:-/dev/nvme0n1}"
-DEFAULT_DEV2="${UNUSED_DISKS[1]:-/dev/nvme1n1}"
-DEFAULT_DEV3="${UNUSED_DISKS[2]:-/dev/nvme4n1}"
+# -------- role-first placement: ledger, then snapshots, then accounts
+AVAIL_DISKS=("${UNUSED_DISKS[@]-}")
+AVAIL_SIZES=("${UNUSED_SIZES[@]-}")
+[ -n "${AVAIL_DISKS[0]-}" ] || AVAIL_DISKS=()
+[ -n "${AVAIL_SIZES[0]-}" ] || AVAIL_SIZES=()
 
-# role→disk map: which device carries each role; every generation path fills it
-ROLES="ledger accounts snapshots"
-ROLE_DISK_ledger=""
-ROLE_DISK_accounts=""
-ROLE_DISK_snapshots=""
-
-mount_dir_for_disk() { # <dev> -> mount dir derived from the role set on that device
-  local roles="" r v
-  for r in $ROLES; do
-    v="ROLE_DISK_$r"
-    [ "${!v}" = "$1" ] && roles+="${roles:+_}$r"
-  done
-  if [ "$roles" = "ledger_accounts_snapshots" ]; then
-    printf '/mnt/solana'
-  else
-    printf '/mnt/solana_%s' "$roles"
-  fi
+PICKED_DEV=""
+pick_disk() { # pick_disk <role> — arrow-pick from AVAIL_DISKS, remove the pick
+  local opts=() i idx
+  for i in "${!AVAIL_DISKS[@]}"; do opts+=("${AVAIL_DISKS[$i]} (${AVAIL_SIZES[$i]})"); done
+  menu_select "Select the disk for $1" 1 "${opts[@]}"
+  idx=$((MENU_INDEX-1))
+  PICKED_DEV="${AVAIL_DISKS[$idx]}"
+  unset 'AVAIL_DISKS[idx]' 'AVAIL_SIZES[idx]'
+  AVAIL_DISKS=("${AVAIL_DISKS[@]-}")
+  AVAIL_SIZES=("${AVAIL_SIZES[@]-}")
+  [ -n "${AVAIL_DISKS[0]-}" ] || AVAIL_DISKS=()
+  [ -n "${AVAIL_SIZES[0]-}" ] || AVAIL_SIZES=()
 }
 
-# -------- selection-first: which detected disks to use (none -> classic flow)
-ASSIGNMENT_DONE=0
-if [ "${#UNUSED_DISKS[@]}" -gt 0 ]; then
-  while :; do
-    prompt "Select disks to use (numbers or /dev paths comma-separated, 'all', or 'none' for the classic prompts)" "all"
-    sel="${REPLY,,}"; sel="${sel// /}"
-    [ "$sel" = "none" ] && break
-    SELECTED=()
-    if [ "$sel" = "all" ]; then
-      SELECTED=("${UNUSED_DISKS[@]}")
-    else
-      ok=1
-      IFS=',' read -ra stoks <<<"$sel"
-      for t in "${stoks[@]}"; do
-        pick=""
-        if [[ "$t" =~ ^[0-9]+$ ]]; then
-          idx=$((t-1))
-          [ "$idx" -ge 0 ] && [ "$idx" -lt "${#UNUSED_DISKS[@]}" ] && pick="${UNUSED_DISKS[$idx]}"
-        else
-          for d in "${UNUSED_DISKS[@]}"; do [ "$d" = "$t" ] && pick="$d"; done
-        fi
-        if [ -z "$pick" ]; then echo "  Invalid selection '$t' (use the listed numbers or device paths)"; ok=0; continue; fi
-        case " ${SELECTED[*]-} " in *" $pick "*) ;; *) SELECTED+=("$pick") ;; esac
-      done
-      [ "$ok" -eq 1 ] || continue
-    fi
-    if [ "${#SELECTED[@]}" -lt 1 ] || [ "${#SELECTED[@]}" -gt 3 ]; then
-      echo "  Invalid: select between 1 and 3 disks (three roles: ledger, accounts, snapshots)"
-      continue
-    fi
-    ASSIGNMENT_DONE=1
-    break
-  done
-fi
-
-if [ "$ASSIGNMENT_DONE" -eq 1 ]; then
-  # -------- role prompts over the selected disks only
-  while :; do
-    ROLE_DISK_ledger=""
-    ROLE_DISK_accounts=""
-    ROLE_DISK_snapshots=""
-    n="${#SELECTED[@]}"
-    for i in "${!SELECTED[@]}"; do
-      dev="${SELECTED[$i]}"
-      remaining=""
-      for r in $ROLES; do v="ROLE_DISK_$r"; [ -z "${!v}" ] && remaining+="${remaining:+,}$r"; done
-      if [ "$i" -eq $((n-1)) ]; then
-        # last selected disk: it must carry everything still unassigned
-        def="$remaining"
-        [ "$def" = "ledger,accounts,snapshots" ] && def="all"
-      elif [ "$i" -eq 0 ]; then
-        def="ledger"
-      else
-        def="accounts"
-      fi
-      while :; do
-        prompt "Use ${dev} for (ledger/accounts/snapshots comma-separated, all)" "$def"
-        ans="${REPLY,,}"; ans="${ans// /}"
-        [ "$ans" = "all" ] && ans="ledger,accounts,snapshots"
-        ok=1
-        IFS=',' read -ra toks <<<"$ans"
-        for t in "${toks[@]}"; do
-          case "$t" in
-            ledger|accounts|snapshots)
-              v="ROLE_DISK_$t"
-              if [ -n "${!v}" ]; then echo "  Invalid: $t is already assigned to ${!v}"; ok=0; fi ;;
-            *) echo "  Invalid token '$t' (use ledger/accounts/snapshots or all)"; ok=0 ;;
-          esac
-        done
-        [ "$ok" -eq 1 ] || continue
-        if [ "$i" -eq $((n-1)) ]; then
-          miss=""
-          for r in ${remaining//,/ }; do
-            case ",$ans," in *",$r,"*) ;; *) miss+="${miss:+ }$r" ;; esac
-          done
-          if [ -n "$miss" ]; then
-            echo "  Invalid: role(s) $miss still need a disk and ${dev} is the last selected one — include them (Enter = $def)"
-            continue
-          fi
-        fi
-        for t in "${toks[@]}"; do printf -v "ROLE_DISK_$t" '%s' "$dev"; done
-        break
-      done
-    done
-    missing=""
-    for r in $ROLES; do v="ROLE_DISK_$r"; [ -z "${!v}" ] && missing+=" $r"; done
-    [ -z "$missing" ] && break
-    echo "  Unassigned role(s):$missing — assign every role across the selected disks; restarting role prompts."
-  done
+# --- ledger
+LEDGER_DEV=""
+if [ "${#AVAIL_DISKS[@]}" -gt 0 ]; then
+  menu_select "Where do you want to put the ledger?" 1 "unused disk" "existing location"
 else
-  # -------- classic layout flow
-  while :; do
-    prompt "Disk layout: separate NVMe per ledger/accounts/snapshots, or all on one disk (separate/single)" "separate"
-    case "$REPLY" in separate|single) DISK_SHAPE="$REPLY"; break ;; *) echo "  Invalid: must be separate or single" ;; esac
-  done
-  if [ "$DISK_SHAPE" = "separate" ]; then
-    prompt_valid "Ledger disk device" "$DEFAULT_DEV1" "$RE_DEV" "must look like /dev/..."
-    ROLE_DISK_ledger="$REPLY"
-    prompt_valid "Accounts disk device" "$DEFAULT_DEV2" "$RE_DEV" "must look like /dev/..."
-    ROLE_DISK_accounts="$REPLY"
-    prompt_valid "Snapshots disk device" "$DEFAULT_DEV3" "$RE_DEV" "must look like /dev/..."
-    ROLE_DISK_snapshots="$REPLY"
-  else
-    prompt_valid "Disk device (holds ledger, accounts and snapshots)" "$DEFAULT_DEV1" "$RE_DEV" "must look like /dev/..."
-    ROLE_DISK_ledger="$REPLY"
-    ROLE_DISK_accounts="$REPLY"
-    ROLE_DISK_snapshots="$REPLY"
-    if [ "$CLUSTER" = "mainnet" ]; then
-      echo "  NOTE: separate NVMe devices for ledger/accounts/snapshots are recommended on mainnet."
-    fi
-  fi
+  MENU_CHOICE="existing location"
 fi
+if [ "$MENU_CHOICE" = "unused disk" ]; then
+  pick_disk ledger
+  LEDGER_DEV="$PICKED_DEV"
+fi
+prompt_valid "Ledger location" "/mnt/solana_ledger/ledger" "$RE_ABSPATH" "must be an absolute path"
+LEDGER_PATH="$REPLY"
+LEDGER_MOUNT="$(dirname "$LEDGER_PATH")"
+[ -n "$LEDGER_DEV" ] && echo "  ${LEDGER_DEV} will be formatted and mounted at ${LEDGER_MOUNT} by the disk-setup script."
 
-LEDGER_PATH="$(mount_dir_for_disk "$ROLE_DISK_ledger")/ledger"
-ACCOUNTS_PATH="$(mount_dir_for_disk "$ROLE_DISK_accounts")/accounts"
-SNAPSHOTS_PATH="$(mount_dir_for_disk "$ROLE_DISK_snapshots")/snapshots"
+# --- snapshots (default: with ledger — agave's default snapshot dir IS the ledger dir)
+SNAPSHOTS_DEV=""
+if [ "${#AVAIL_DISKS[@]}" -gt 0 ]; then
+  menu_select "Where do you want to put snapshots?" 1 "with ledger" "unused disk" "existing location"
+else
+  menu_select "Where do you want to put snapshots?" 1 "with ledger" "existing location"
+fi
+case "$MENU_CHOICE" in
+  "with ledger")
+    SNAPSHOTS_PATH="$LEDGER_PATH"
+    echo "  Snapshots ride with the ledger — the --snapshots argument is omitted from the start script (agave default)."
+    ;;
+  "unused disk")
+    pick_disk snapshots
+    SNAPSHOTS_DEV="$PICKED_DEV"
+    prompt_valid "Snapshots location" "/mnt/solana_snapshots/snapshots" "$RE_ABSPATH" "must be an absolute path"
+    SNAPSHOTS_PATH="$REPLY"
+    echo "  ${SNAPSHOTS_DEV} will be formatted and mounted at $(dirname "$SNAPSHOTS_PATH") by the disk-setup script."
+    ;;
+  *)
+    prompt_valid "Snapshots location" "/mnt/solana_snapshots/snapshots" "$RE_ABSPATH" "must be an absolute path"
+    SNAPSHOTS_PATH="$REPLY"
+    ;;
+esac
+
+# --- accounts (never co-located with ledger: always its own disk/mount)
+ACCOUNTS_DEV=""
+if [ "${#AVAIL_DISKS[@]}" -gt 0 ]; then
+  menu_select "Where do you want to put accounts?" 1 "unused disk" "existing location"
+else
+  MENU_CHOICE="existing location"
+fi
+if [ "$MENU_CHOICE" = "unused disk" ]; then
+  pick_disk accounts
+  ACCOUNTS_DEV="$PICKED_DEV"
+fi
+while :; do
+  prompt_valid "Accounts location" "/mnt/solana_accounts/accounts" "$RE_ABSPATH" "must be an absolute path"
+  case "$REPLY" in
+    "$LEDGER_MOUNT"|"$LEDGER_MOUNT"/*)
+      echo "  Invalid: accounts always live on their own disk/mount — ${REPLY} is under the ledger mount (${LEDGER_MOUNT})."
+      continue
+      ;;
+  esac
+  ACCOUNTS_PATH="$REPLY"
+  break
+done
+[ -n "$ACCOUNTS_DEV" ] && echo "  ${ACCOUNTS_DEV} will be formatted and mounted at $(dirname "$ACCOUNTS_PATH") by the disk-setup script."
+
+# devices to prepare (deduped structurally: picked disks left the pool)
+PLACED_DEVS=()
+PLACED_MOUNTS=()
+[ -n "$LEDGER_DEV" ] && { PLACED_DEVS+=("$LEDGER_DEV"); PLACED_MOUNTS+=("$LEDGER_MOUNT"); }
+[ -n "$SNAPSHOTS_DEV" ] && { PLACED_DEVS+=("$SNAPSHOTS_DEV"); PLACED_MOUNTS+=("$(dirname "$SNAPSHOTS_PATH")"); }
+[ -n "$ACCOUNTS_DEV" ] && { PLACED_DEVS+=("$ACCOUNTS_DEV"); PLACED_MOUNTS+=("$(dirname "$ACCOUNTS_PATH")"); }
 
 prompt_valid "Validator log path" "/mnt/solana/log" "$RE_ABSPATH" "must be an absolute path"
 LOG_PATH="$REPLY"
@@ -372,11 +371,9 @@ elif prompt_yn "Enable Jito MEV?" "y"; then
   default_bps=0; [ "$CLUSTER" = "mainnet" ] && default_bps=800
   prompt_valid "Jito commission (bps)" "$default_bps" "$RE_BPS" "0-9999"
   JITO_COMMISSION_BPS="$REPLY"
-  while :; do
-    prompt "Jito block-engine region ($(p jito_regions | tr ' ' '/'))" "ny"
-    case " $(p jito_regions) " in *" $REPLY "*) JITO_REGION="$REPLY"; break ;; esac
-    echo "  Invalid: must be one of: $(p jito_regions)"
-  done
+  read -ra JITO_REGIONS <<<"$(p jito_regions)"
+  menu_select "Jito block-engine region" 1 "${JITO_REGIONS[@]}"
+  JITO_REGION="$MENU_CHOICE"
   case "$CLUSTER" in
     testnet) JITO_BLOCK_ENGINE_URL="https://${JITO_REGION}.testnet.block-engine.jito.wtf" ;;
     mainnet) JITO_BLOCK_ENGINE_URL="https://${JITO_REGION}.mainnet.block-engine.jito.wtf" ;;
@@ -458,16 +455,6 @@ disk_setup_cmds() { # disk_setup_cmds <dev> <mount_dir> -> commands for one manu
   printf '  mount -o %s %s %s\n' "$DISK_FS_OPTIONS" "$1" "$2"
   printf '  UUID=$(blkid -s UUID -o value %s)\n' "$1"
   printf '  grep -q " %s " /etc/fstab || echo "UUID=$UUID %s xfs %s 0 0" >> /etc/fstab\n' "$2" "$2" "$DISK_FS_OPTIONS"
-}
-
-unique_role_disks() { # devices from the map, role order, deduplicated
-  local seen="" r v
-  for r in $ROLES; do
-    v="ROLE_DISK_$r"
-    case " $seen " in *" ${!v} "*) continue ;; esac
-    seen+="${seen:+ }${!v}"
-    printf '%s\n' "${!v}"
-  done
 }
 
 ENTRYPOINTS_BLOCK="$(yaml_list_block "$(p entrypoints)")"
@@ -562,9 +549,10 @@ echo
 echo "Generated: playbooks/${VALIDATOR_NAME}-${CLUSTER}-profile.yaml"
 OUTPUT_FILE=""  # generation succeeded; cleanup must not remove it
 
-# ------------------------------------------------------- disk setup script (always)
+# ------------------------------------ disk setup script (only for placed disks)
 # Ansible never touches block devices; this script is the only format/mount path.
-{
+SETUP_SCRIPT_GENERATED=0
+if [ "${#PLACED_DEVS[@]}" -gt 0 ]; then
   SETUP_SCRIPT_NAME="disk-setup-${VALIDATOR_NAME}.sh"
   SETUP_SCRIPT="$REPO_ROOT/playbooks/$SETUP_SCRIPT_NAME"
   # shellcheck disable=SC2016  # ${1-} belongs to the generated script's runtime
@@ -576,13 +564,13 @@ OUTPUT_FILE=""  # generation succeeded; cleanup must not remove it
     printf 'set -euo pipefail\n\n'
     printf 'run() {\n'
     printf '  lsblk -o NAME,SIZE,FSTYPE,MOUNTPOINT\n'
-    while IFS= read -r dev; do
-      disk_setup_cmds "$dev" "$(mount_dir_for_disk "$dev")"
-    done < <(unique_role_disks)
+    for i in "${!PLACED_DEVS[@]}"; do
+      disk_setup_cmds "${PLACED_DEVS[$i]}" "${PLACED_MOUNTS[$i]}"
+    done
     printf '  mount -a\n'
-    while IFS= read -r dev; do
-      printf '  findmnt %s\n' "$(mount_dir_for_disk "$dev")"
-    done < <(unique_role_disks)
+    for i in "${!PLACED_DEVS[@]}"; do
+      printf '  findmnt %s\n' "${PLACED_MOUNTS[$i]}"
+    done
     printf '}\n\n'
     printf 'if [ "${1-}" != "--yes" ]; then\n'
     printf '  echo "DRY RUN — commands that would execute:"\n'
@@ -594,12 +582,12 @@ OUTPUT_FILE=""  # generation succeeded; cleanup must not remove it
     printf 'run\n'
   } > "$SETUP_SCRIPT"
   chmod +x "$SETUP_SCRIPT"
+  SETUP_SCRIPT_GENERATED=1
   echo
-  echo "Disk preparation: run these commands on the target host as root BEFORE the playbook"
-  echo "(skip if the disks are already formatted and mounted)."
+  echo "Disk preparation: run these commands on the target host as root BEFORE the playbook."
   echo "Saved to playbooks/$SETUP_SCRIPT_NAME (gitignored; regenerate by re-running the wizard):"
   bash "$SETUP_SCRIPT" 2>/dev/null | sed '1d' || true
-}
+fi
 
 # ---------------------------------------------------------------- optional vault step
 if [ -f "$VAULT_FILE" ]; then
@@ -632,22 +620,26 @@ fi
 
 echo
 echo "Next steps:"
-echo "  1. Review playbooks/${VALIDATOR_NAME}-${CLUSTER}-profile.yaml (cluster presets last verified 2026-07)."
-echo "  2. Prepare the disks FIRST (unless already formatted+mounted): run playbooks/disk-setup-${VALIDATOR_NAME}.sh"
-echo "     on the target host as root, with --yes to execute."
-echo "  3. Run: ansible-playbook playbooks/${VALIDATOR_NAME}-${CLUSTER}-profile.yaml -i inventory -e host=local --connection=local --ask-vault-pass"
+STEP=1
+step() { echo "  ${STEP}. $1"; STEP=$((STEP+1)); }
+step "Review playbooks/${VALIDATOR_NAME}-${CLUSTER}-profile.yaml (cluster presets last verified 2026-07)."
+if [ "$SETUP_SCRIPT_GENERATED" -eq 1 ]; then
+  step "Prepare the disks FIRST: run playbooks/disk-setup-${VALIDATOR_NAME}.sh"
+  echo "     on the target host as root, with --yes to execute."
+fi
+step "Run: ansible-playbook playbooks/${VALIDATOR_NAME}-${CLUSTER}-profile.yaml -i inventory -e host=local --connection=local --ask-vault-pass"
 if [ "$IDENTITY_DEFERRED" -eq 1 ]; then
-  echo "  4. Identity deferred: the playbook generates /home/solana/.secrets/funded-validator-keypair.json"
+  step "Identity deferred: the playbook generates /home/solana/.secrets/funded-validator-keypair.json"
   echo "     on the host and fills validator_identity_pubkey automatically during the run."
 fi
 if [ "$VOTE_DEFERRED" -eq 1 ]; then
-  echo "  5. Vote account deferred: after provisioning, create it ON-CHAIN (needs a funded identity):"
+  step "Vote account deferred: after provisioning, create it ON-CHAIN (needs a funded identity):"
   echo "       solana create-vote-account /home/solana/.secrets/vote-account-keypair.json \\"
   echo "         /home/solana/.secrets/funded-validator-keypair.json <WITHDRAWER_ADDRESS>"
   echo "     Until then the validator cannot vote and watchtower will alert — that is expected."
 fi
 if [ "$CLUSTER" = "alpenglow" ]; then
-  echo "  6. Alpenglow: after provisioning, build the validator with ~/build-alpenglow.sh"
+  step "Alpenglow: after provisioning, build the validator with ~/build-alpenglow.sh"
   echo "     (default ref v4.2.0-beta.0), then ~/build-solana-cli.sh for the CLI tools."
   echo "     Presets (entrypoints, shred version, bank hash) are volatile test-cluster"
   echo "     values (last verified 2026-08) — re-check them after cluster restarts."

@@ -18,7 +18,9 @@ exec {{ env_path }}/agave-validator \
     --log {{ validator_log_path }}/solana-validator.log \
     --ledger {{ ledger_path }} \
     --accounts {{ accounts_path }} \
+{% if snapshots_path != ledger_path %}
     --snapshots {{ snapshots_path }} \
+{% endif %}
     --maximum-incremental-snapshots-to-retain 2 \
     --rpc-port {{ rpc_port }} \
     --dynamic-port-range {{ dynamic_port_range }} \
