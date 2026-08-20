@@ -66,7 +66,7 @@ When at least one role is placed on an unused disk, the wizard SHALL print the d
 ## ADDED Requirements
 
 ### Requirement: Role-first storage placement
-The wizard SHALL place storage role by role, in order: **ledger** (menu: `unused disk` / `existing location`; picking a disk then prompts for the location, default `/mnt/solana_ledger/ledger`, and the disk is prepared at the location's parent directory; `existing location` prompts for an absolute path with the same default and prepares nothing), **snapshots** (menu: `with ledger` — the default — / `unused disk` / `existing location`, ceremony as ledger with default `/mnt/solana_snapshots/snapshots`), **accounts** (ceremony as ledger, default `/mnt/solana_accounts/accounts`). The resulting `ledger_path`/`accounts_path`/`snapshots_path` SHALL feed the playbook exactly as before (locations only; Ansible never touches block devices).
+The wizard SHALL place storage role by role, in order: **ledger** (menu: `unused disk` / `existing location`; picking a disk then prompts for the location, default `/mnt/solana_ledger/ledger`, and the disk is prepared at the location's parent directory; `existing location` prompts for an absolute path with the same default and prepares nothing), **snapshots** (menu: `with ledger` — the default — / `unused disk` / `existing location`, ceremony as ledger with default `/mnt/solana_snapshots/snapshots`), **accounts** (ceremony as ledger, default `/mnt/solana_accounts/accounts` — accounts are never co-located with ledger: an accounts location resolving under the ledger mount SHALL be rejected with a message and re-prompted). The resulting `ledger_path`/`accounts_path`/`snapshots_path` SHALL feed the playbook exactly as before (locations only; Ansible never touches block devices).
 
 #### Scenario: Mixed placement
 - **WHEN** ledger goes to an unused disk (default location), snapshots `with ledger`, and accounts to an existing location `/data/accounts`
@@ -76,8 +76,12 @@ The wizard SHALL place storage role by role, in order: **ledger** (menu: `unused
 - **WHEN** the operator accepts every placement default on a host with three unused disks
 - **THEN** ledger/accounts land on distinct disks at the standard paths, snapshots ride with ledger, and the setup script covers the two placed disks
 
+#### Scenario: Accounts co-location rejected
+- **WHEN** the operator enters an accounts location under the ledger mount (e.g. `/mnt/solana_ledger/accounts`)
+- **THEN** the wizard rejects it, stating that accounts always live on their own disk/mount, and re-prompts
+
 ### Requirement: Fixed-choice prompts are arrow-key menus with a non-tty fallback
-Fixed-choice storage prompts SHALL render as interactive menus navigated with the Up/Down arrow keys and confirmed with Enter (the default option pre-highlighted), implemented via a reusable helper reading terminal escape sequences. When the wizard's input is not a terminal (piped/scripted use), the same prompts SHALL fall back to a numbered plain-text listing accepting the option number (or its label), preserving scripted end-to-end runs byte-for-byte deterministically.
+All fixed-choice prompts — cluster selection, every yes/no toggle (Jito, XDP, vault creation), the Jito region, and the storage placement menus and disk pickers — SHALL render as interactive menus navigated with the Up/Down arrow keys and confirmed with Enter (the default option pre-highlighted), implemented via a reusable helper reading terminal escape sequences. When the wizard's input is not a terminal (piped/scripted use), the same prompts SHALL fall back to a numbered plain-text listing accepting the option number or its label — including the legacy labels (`y`/`n`, cluster names, region names) — so scripted end-to-end runs stay deterministic and existing input sequences keep working.
 
 #### Scenario: Interactive selection
 - **WHEN** the operator runs the wizard on a terminal and presses Down then Enter at the ledger placement menu
@@ -85,7 +89,11 @@ Fixed-choice storage prompts SHALL render as interactive menus navigated with th
 
 #### Scenario: Scripted selection
 - **WHEN** the wizard runs with piped stdin
-- **THEN** menus print numbered options and consume one input line each, and the existing e2e input-sequence style keeps working
+- **THEN** menus print numbered options and consume one input line each, and legacy answers (`y`, `n`, `testnet`, region names) select the matching option
+
+#### Scenario: Whole flow is menu-driven
+- **WHEN** the operator runs the wizard on a terminal
+- **THEN** cluster, Jito/XDP/vault toggles, Jito region, and all storage choices are arrow-key menus — no fixed-choice prompt requires typing its answer
 
 ### Requirement: Snapshots co-located with ledger omit the startup argument
 When snapshots are placed `with ledger`, the generated `snapshots_path` SHALL equal `ledger_path` and every start-script template SHALL omit the `--snapshots` argument (agave's default snapshot location is the ledger directory; per the minimal-flags convention an argument equal to the default must not appear). When snapshots have their own location, `--snapshots {{ snapshots_path }}` SHALL be emitted as before.
