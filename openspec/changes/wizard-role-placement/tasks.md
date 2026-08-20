@@ -24,4 +24,4 @@
 
 - [x] 5.1 e2e (numbered fallback): mixed placement (disk + with-ledger + existing) asserting paths, setup-script scope, and `--snapshots` omission via template render; defaults-on-three-disks case; no-unused-disks case (locations only, no script); picker-dedupe case; accounts-under-ledger rejection; legacy-label answers (`y`/`n`, cluster names) still selecting correctly
 - [x] 5.2 Regenerate the sample with default answers (snapshots with ledger — intentional showcase diff, review against the mixed-placement scenario, commit as the new round-trip baseline); template render check for both `--snapshots` branches on all three templates
-- [ ] 5.3 shellcheck + yamllint clean; commit, push, CI green
+- [x] 5.3 shellcheck + yamllint clean; commit, push, CI green
