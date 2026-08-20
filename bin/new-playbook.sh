@@ -253,15 +253,8 @@ while read -r dev size; do
   UNUSED_SIZES+=("$size")
 done < <(detect_unused_disks)
 
-if [ "${#UNUSED_DISKS[@]}" -gt 0 ]; then
-  echo
-  echo "Unused disks detected on this machine (no partitions, no filesystem, unmounted):"
-  for i in "${!UNUSED_DISKS[@]}"; do
-    echo "  $((i+1))) ${UNUSED_DISKS[$i]} (${UNUSED_SIZES[$i]})"
-  done
-  echo "  (Detection runs where the wizard runs — ignore this list when preparing a playbook for another host.)"
-  echo
-fi
+# no standalone detection banner: the role pickers list each unused disk
+# (device + size) where the choice is actually made
 
 # -------- role-first placement: ledger, then snapshots, then accounts
 AVAIL_DISKS=("${UNUSED_DISKS[@]-}")
