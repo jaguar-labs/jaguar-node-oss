@@ -22,9 +22,13 @@ The wizard SHALL prompt for: validator name, cluster (`testnet`, `mainnet`, or `
 ### Requirement: Device prompts propose detected unused disks
 Before the storage placement prompts, the wizard SHALL detect unused disks on the machine it runs on — block devices of type `disk` with no partitions, no filesystem signature, and nothing mounted — and list them numbered with sizes. Detected disks populate the `unused disk` pickers of the role-first placement flow; a disk already placed for one role SHALL NOT be offered again for another (one disk, one mount — sharing is expressed via `existing location` under the first role's mount). When no disks are detected (or `lsblk` is unavailable), the `unused disk` option SHALL be absent and each role is placed by location only. The listing SHALL note that detection reflects the wizard's machine and should be ignored when preparing a playbook for a different host.
 
-#### Scenario: Unused disks feed the pickers
+#### Scenario: Unused disks present
 - **WHEN** the wizard runs on a host with bare NVMe devices
 - **THEN** those devices appear (with sizes) in the ledger placement picker, and a device chosen for ledger no longer appears in the snapshots or accounts pickers
+
+#### Scenario: Assignment declined
+- **WHEN** unused disks are detected but the operator places every role on an `existing location`
+- **THEN** no detected disk is touched and no disk-setup script is produced — declining disk use is per role, not a separate mode
 
 #### Scenario: No unused disks
 - **WHEN** the wizard runs on a machine whose disks are all partitioned, formatted, or mounted
@@ -33,9 +37,9 @@ Before the storage placement prompts, the wizard SHALL detect unused disks on th
 ### Requirement: Disk preparation commands always generated
 When at least one role is placed on an unused disk, the wizard SHALL print the disk preparation commands — `mkfs.xfs` per placed device, `mount` at the chosen location's mount dir using the repo's tuned mount options, a UUID-based `/etc/fstab` entry, and `mount -a` verification — and SHALL write the same commands to `playbooks/disk-setup-<name>.sh` (gitignored), covering exactly the placed disks. The script SHALL refuse to execute without an explicit `--yes` flag and SHALL print its own contents when run without it. The wizard's next-steps SHALL state that the script must be run on the target host as root before the playbook. When every role landed on an existing location, no setup script SHALL be produced.
 
-#### Scenario: Commands match the placements
+#### Scenario: Commands match the playbook
 - **WHEN** ledger is placed on an unused disk at `/mnt/solana_ledger/ledger` and accounts on an existing location
-- **THEN** the setup script formats and mounts only the ledger disk at `/mnt/solana_ledger`, and the accounts path appears nowhere in it
+- **THEN** the setup script formats and mounts only the ledger disk at `/mnt/solana_ledger` (the same device and mount dir behind the playbook's `ledger_path`), and the accounts path appears nowhere in it
 
 #### Scenario: Destructive-command guard
 - **WHEN** the operator runs `disk-setup-<name>.sh` without `--yes`
