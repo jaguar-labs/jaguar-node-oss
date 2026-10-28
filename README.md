@@ -24,7 +24,7 @@ The canonical profile source is `playbooks/templates/profile.yaml.tmpl` — `pla
 
 > **_BREAKING (storage):_** Ansible **never formats or mounts disks**. Playbooks carry storage *locations* only (`ledger_path`, `accounts_path`, `snapshots_path`); disk preparation always happens via the wizard-generated `playbooks/disk-setup-<name>.sh`, run on the target host as root **before** the playbook. The former `disk_management` and `ramdisk_management` structures are gone (the 120 GB `accounts_index` tmpfs was consumed by nothing and has been removed).
 
-> **_ALPENGLOW:_** The wizard's cluster prompt also offers `alpenglow` (Anza's consensus test cluster, agave `4.2.0-beta.0`): Jito is unavailable there (auto-disabled), entrypoints are IP-based, the port range is `9000-12500`, and you are prompted for the expected shred version and bank hash — **these change on every cluster restart**, so check the latest values. Bootstrap order: wizard → disk-setup → playbook → `~/build-alpenglow.sh` (defaults to the current ref) → `~/build-solana-cli.sh` → start.
+> **_ALPENGLOW:_** Alpenglow consensus is live on testnet and mainnet; the standard and Jito start scripts cover it, and the node transition script carries the vote history file. The wizard's cluster prompt still offers `alpenglow`, the pre-activation test cluster, whose start script is obsolete and kept only until it is retired (agave `4.2.0-beta.0`): Jito is unavailable there (auto-disabled), entrypoints are IP-based, the port range is `9000-12500`, and you are prompted for the expected shred version and bank hash — **these change on every cluster restart**, so check the latest values. Bootstrap order: wizard → disk-setup → playbook → `~/build-alpenglow.sh` (defaults to the current ref) → `~/build-solana-cli.sh` → start.
 
 Storage is placed **role by role** with arrow-key menus (↑/↓ + Enter; piped input falls back to numbered choices): *Where do you want to put the ledger?* — an unused disk (detected bare devices, listed with sizes) or an existing location, then the path (default `/mnt/solana_ledger/ledger`). Snapshots default to **with ledger** — agave's default snapshot dir is the ledger dir, so the `--snapshots` flag is omitted from the start script — or their own disk/location (`/mnt/solana_snapshots/snapshots`). Accounts follow the same ceremony (`/mnt/solana_accounts/accounts`) but are **never co-located with ledger** (a location under the ledger mount is rejected). A disk placed for one role leaves the pickers; the disk-setup script covers exactly the placed disks (none placed → no script).
 
@@ -44,3 +44,36 @@ Use `--vault-password-file <path>` instead of `--ask-vault-pass` for unattended 
 > **_BUILD NOTE:_** Agave is **built from source** during provisioning (agave 4.1+ ships no prebuilt validator binary, and the release CDN is blocked from some datacenter networks — only github.com and crates.io are needed). The first run adds 20–60+ minutes of compilation and needs ~10 GB free in the solana home. On Jito-enabled profiles the playbook builds the CLI tools only; the validator itself is built by running `~/build-jito.sh` as the `solana` user afterwards (it also copies the CLI tools into the Jito release so `solana`/`solana-keygen` stay available). Re-runs skip all build steps.
 
 > **_SECURITY NOTE:_** The vault contains exactly one secret: your PagerDuty key. Everything else is a constant — `telegraf_*` are shared community values shipped as role defaults, and the Solana metrics credentials are the public per-cluster values from the [Anza clusters page](https://docs.anza.xyz/clusters/available), baked into the playbook by the wizard. To use a private metrics backend, add `telegraf_username`/`telegraf_password` to your vault (vault values override role defaults).
+
+### Node transition (hot-swap)
+
+`~/node-transition.sh` hands the voting identity over to a peer host. It is one client-agnostic script, identical on
+Agave and Firedancer hosts (`firedancer-support` installs the same file), and everything host-specific comes from
+`/etc/node-transition.d/<name>.conf`, rendered from `transition_peers` in your profile (structure documented in
+`playbooks/sample-testnet-profile.yaml`; a shared standby declares one entry per primary it covers). Nothing in this
+repo names a validator, a host or a key.
+
+```bash
+./node-transition.sh <name> --check        # pre-flight only: ssh, key sums, both links, both identities, armed vote
+                                           # account, state file, peer catch-up, peer sudo (Firedancer), versions
+./node-transition.sh <name>                # on the ACTIVE host: wait for a safe window, give the identity up, carry
+                                           # vote_history-<pubkey>.bin (Alpenglow) or tower-1_9-<pubkey>.bin (Tower)
+                                           # to the peer, take the identity there. Same steps in both directions.
+./node-transition.sh <name> --arm          # on a STANDBY: point start-node.sh at start-node-<name>.sh, restart, wait
+                                           # for catch-up (the vote account is fixed at process start)
+./node-transition.sh <name> --take-over    # on a STANDBY when the active host is unreachable: no state file, gated
+                                           # (armed, caught up, no local state file, typed confirmation)
+#   --dry-run prints every command; --now skips the safe-window wait; --yes skips the take-over prompt.
+#   <name> may be omitted when the host has a single configuration.
+```
+
+The file to carry is detected, not assumed: the vote history file (Alpenglow) first, the tower file otherwise;
+`--require-tower` is only passed when a tower file was carried. An Agave peer receives the file in its ledger, owned
+by its validator user; a Firedancer peer receives it in its handoff directory and takes the identity through
+`sudo fd-set-identity.sh staked`, which `firedancer-support` exposes to the peer's ssh user.
+
+> **_UPGRADE NOTE (identity symlink):_** `validator-keypair.json` is operational state. The playbook now creates it
+> once, pointing at the unfunded key, and never moves it again (earlier versions re-pointed it to the unfunded key on
+> every run, arming a non-voting restart on a voting host). After upgrading, check once per host:
+> `readlink ~/.secrets/validator-keypair.json` must be the funded key on the voting host and the unfunded key elsewhere.
+> Hand-copied per-peer variants of the old script can be deleted once their `transition_peers` entries exist.

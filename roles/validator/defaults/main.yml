@@ -25,3 +25,11 @@ xdp:
   ring_rx: 512
   ring_tx: 512
   combined_queues: ""
+# Hot-swap peers this host can hand the voting identity to, one entry per name
+# (see playbooks/sample-testnet-profile.yaml for the structure). Each entry
+# renders /etc/node-transition.d/<name>.conf, read by node-transition.sh.
+# Empty by default: nothing in this repo names a validator, host or key.
+transition_peers: []
+# Optional cluster RPC used by node-transition.sh for catch-up checks (local
+# slot vs cluster slot). Falls back to `solana catchup` when empty.
+transition_cluster_rpc_url: "{{ remote_cluster_rpc_address | default('') }}"

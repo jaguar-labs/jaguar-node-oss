@@ -42,7 +42,8 @@ ansible-playbook playbooks/<profile>.yaml -i inventory -e host=local --connectio
 ### Key Patterns
 
 - **Jito conditional**: `jito.enabled` boolean controls Jito-specific tasks, templates, and firewall rules throughout. Two separate startup script templates: `start-node.sh.j2` (standard) and `start-node-jito.sh.j2` (Jito-enabled).
-- **Symlink identity switching**: `validator-keypair.json` symlinks to either `funded-validator-keypair.json` or `unfunded-validator-keypair.json` for voting/non-voting transitions.
+- **Symlink identity switching**: `validator-keypair.json` symlinks to either `funded-validator-keypair.json` or `unfunded-validator-keypair.json` for voting/non-voting transitions. The link is operational state: the playbook creates it once (unfunded) and never moves it; `node-transition.sh` and operators do.
+- **Node transition**: `roles/validator/files/node-transition.sh` is one client-agnostic script (Agave or Firedancer on either side), installed unchanged here and by `firedancer-support` from a pinned commit. Everything host-specific comes from `/etc/node-transition.d/<name>.conf`, rendered from `transition_peers` in the profile. Never hardcode a validator, host or key name in the repo.
 - **Variable layering**: Role `defaults/main.yaml` < playbook `vars` < CLI `-e` overrides.
 - **Port range transform**: `dynamic_port_range` ("8000-10000") is split and reformatted to "8000:10000" for iptables rules via `set_fact`.
 

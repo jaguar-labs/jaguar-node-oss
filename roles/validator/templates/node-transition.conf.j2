@@ -1,0 +1,58 @@
+# {{ ansible_managed }}
+# node-transition.sh configuration for peer "{{ item.name }}". Paths, users,
+# ports and pubkeys only; no secret. Rendered from transition_peers in the
+# host profile; edit the profile, not this file.
+{% set peer = item.peer %}
+{% set pc = peer.client | default('agave') %}
+{% set puser = peer.user | default('firedancer' if pc == 'firedancer' else 'solana') %}
+{% set phome = '/home/' ~ puser %}
+NAME="{{ item.name }}"
+
+# --- this host ---
+LOCAL_CLIENT="agave"
+LOCAL_USER="{{ solana_user }}"
+LOCAL_SERVICE="solana-validator"
+LOCAL_STATE_DIR="{{ ledger_path }}"
+LOCAL_FUNDED_KEYPAIR="{{ item.local_funded_keypair | default(secrets_path ~ '/funded-validator-keypair.json') }}"
+LOCAL_UNFUNDED_KEYPAIR="{{ secrets_path }}/unfunded-validator-keypair.json"
+LOCAL_IDENTITY_LINK="{{ secrets_path }}/validator-keypair.json"
+LOCAL_VOTE_ACCOUNT="{{ item.vote_account }}"
+LOCAL_START_SCRIPT="{{ item.start_script | default('') }}"
+LOCAL_START_LINK="{{ solana_home }}/start-node.sh"
+LOCAL_ADMIN="{{ env_path }}/agave-validator"
+LOCAL_CLI_BIN="{{ env_path }}"
+LOCAL_IDENTITY_SCRIPT=""
+LOCAL_CONFIG=""
+LOCAL_RPC_PORT="{{ rpc_port }}"
+LOCAL_METRICS_PORT=""
+CLUSTER_RPC_URL="{{ transition_cluster_rpc_url | default('') }}"
+
+# --- the peer ---
+PEER_HOST="{{ peer.host }}"
+PEER_USER="{{ puser }}"
+PEER_CLIENT="{{ pc }}"
+{% if pc == 'firedancer' %}
+PEER_STATE_DIR="{{ peer.state_dir | default(phome ~ '/handoff') }}"
+PEER_FUNDED_KEYPAIR="{{ peer.funded_keypair | default(phome ~ '/.secrets/staked-identity.json') }}"
+PEER_UNFUNDED_KEYPAIR="{{ peer.unfunded_keypair | default(phome ~ '/.secrets/unstaked-identity.json') }}"
+PEER_IDENTITY_LINK="{{ peer.identity_link | default(phome ~ '/.secrets/identity.json') }}"
+PEER_ADMIN="{{ peer.admin | default('/opt/firedancer/current/bin/firedancer') }}"
+PEER_CLI_BIN="{{ peer.cli_bin | default('') }}"
+PEER_IDENTITY_SCRIPT="{{ peer.identity_script | default('/usr/local/sbin/fd-set-identity.sh') }}"
+PEER_CONFIG="{{ peer.config | default('/etc/firedancer/config.toml') }}"
+PEER_METRICS_PORT="{{ peer.metrics_port | default(7999) }}"
+PEER_SUDO="{{ 'yes' if peer.sudo | default(true) else 'no' }}"
+{% else %}
+PEER_STATE_DIR="{{ peer.state_dir | default(ledger_path) }}"
+PEER_FUNDED_KEYPAIR="{{ peer.funded_keypair | default(phome ~ '/.secrets/funded-validator-keypair.json') }}"
+PEER_UNFUNDED_KEYPAIR="{{ peer.unfunded_keypair | default(phome ~ '/.secrets/unfunded-validator-keypair.json') }}"
+PEER_IDENTITY_LINK="{{ peer.identity_link | default(phome ~ '/.secrets/validator-keypair.json') }}"
+PEER_ADMIN="{{ peer.admin | default(phome ~ '/.local/share/solana/install/active_release/bin/agave-validator') }}"
+PEER_CLI_BIN="{{ peer.cli_bin | default(phome ~ '/.local/share/solana/install/active_release/bin') }}"
+PEER_IDENTITY_SCRIPT="{{ peer.identity_script | default('') }}"
+PEER_CONFIG="{{ peer.config | default('') }}"
+PEER_METRICS_PORT="{{ peer.metrics_port | default('') }}"
+PEER_SUDO="{{ 'yes' if peer.sudo | default(false) else 'no' }}"
+{% endif %}
+PEER_VOTE_ACCOUNT="{{ peer.vote_account | default(item.vote_account) }}"
+PEER_RPC_PORT="{{ peer.rpc_port | default(8899) }}"

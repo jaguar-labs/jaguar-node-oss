@@ -14,6 +14,11 @@
   tags:
     - validator.copy.scripts
 
+- name: Node transition configuration
+  import_tasks: transition_config.yaml
+  tags:
+    - validator.transition
+
 - name: storage directories
   import_tasks: storage_dirs.yaml
   tags:

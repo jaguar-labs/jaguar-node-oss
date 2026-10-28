@@ -1,0 +1,55 @@
+---
+# Renders /etc/node-transition.d/<name>.conf, one per transition_peers entry,
+# read by node-transition.sh (roles/validator/files/node-transition.sh). The
+# file carries paths, users, ports and pubkeys only, never a secret. Names no
+# longer declared in the profile are removed so the script cannot act on a
+# stale peer.
+- name: Assert transition_peers entries carry the required keys
+  assert:
+    that:
+      - item.name is defined
+      - item.name | length > 0
+      - item.vote_account is defined
+      - item.vote_account | length > 0
+      - item.peer is defined
+      - item.peer.host is defined
+      - item.peer.host | length > 0
+      - item.peer.client | default('agave') in ['agave', 'firedancer']
+    fail_msg: "transition_peers entry '{{ item.name | default('?') }}' needs name, vote_account, peer.host and peer.client in [agave, firedancer]"
+  loop: "{{ transition_peers }}"
+  loop_control:
+    label: "{{ item.name | default('?') }}"
+
+- name: Create the node-transition configuration directory
+  ansible.builtin.file:
+    path: /etc/node-transition.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Render one node-transition configuration per peer
+  template:
+    src: node-transition.conf.j2
+    dest: "/etc/node-transition.d/{{ item.name }}.conf"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ transition_peers }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Find node-transition configurations
+  ansible.builtin.find:
+    paths: /etc/node-transition.d
+    patterns: "*.conf"
+  register: transition_conf_files
+
+- name: Remove node-transition configurations for names no longer declared
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ transition_conf_files.files }}"
+  loop_control:
+    label: "{{ item.path }}"
+  when: (item.path | basename | regex_replace('\\.conf$', '')) not in (transition_peers | map(attribute='name') | list)

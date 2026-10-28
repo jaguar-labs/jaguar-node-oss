@@ -145,6 +145,30 @@
       enabled: False
       expected_shred_version: ""   # changes on cluster restarts
       expected_bank_hash: ""           # changes on cluster restarts
+    # Hot-swap peers (node-transition.sh): one entry per validator this host can
+    # hand the voting identity to. Keep [] here; declare real entries in your
+    # own (untracked) profile. Placeholder structure, names are illustrative:
+    #   transition_peers:
+    #     - name: alpha                                   # /etc/node-transition.d/alpha.conf
+    #       local_funded_keypair: "{{ secrets_path }}/alpha-funded-validator-keypair.json"
+    #       vote_account: "<vote account pubkey>"
+    #       start_script: "{{ solana_home }}/start-node-alpha.sh"   # armed by --arm; "" on a primary
+    #       peer:
+    #         host: 203.0.113.10
+    #         user: solana                                # ssh + file owner on the peer
+    #         client: agave                               # agave | firedancer
+    #         state_dir: /mnt/solana_ledger/ledger        # agave: ledger; firedancer: /home/firedancer/handoff
+    #         funded_keypair: /home/solana/.secrets/funded-validator-keypair.json
+    #         unfunded_keypair: /home/solana/.secrets/unfunded-validator-keypair.json
+    #         identity_link: /home/solana/.secrets/validator-keypair.json
+    #         admin: /home/solana/.local/share/solana/install/active_release/bin/agave-validator
+    #         cli_bin: /home/solana/.local/share/solana/install/active_release/bin
+    #         identity_script: ""                         # firedancer: /usr/local/sbin/fd-set-identity.sh
+    #         config: ""                                  # firedancer: /etc/firedancer/config.toml
+    #         rpc_port: 8899
+    #         metrics_port: ""                            # firedancer: 7999
+    #         sudo: false                                 # firedancer: true
+    transition_peers: []
     doublezero:
       enabled: false
       cluster: "{{ cluster_environment }}"   # "testnet" or "mainnet"

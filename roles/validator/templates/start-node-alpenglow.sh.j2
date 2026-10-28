@@ -7,6 +7,7 @@ exec {{ env_path }}/agave-validator \
 {% else %}
     --vote-account {{ secrets_path }}/vote-account-keypair.json \
 {% endif %}
+    --authorized-voter {{ secrets_path }}/funded-validator-keypair.json \
     --rpc-port {{ rpc_port }} \
     --full-rpc-api \
     --log {{ validator_log_path }}/solana-validator.log \
@@ -32,5 +33,4 @@ exec {{ env_path }}/agave-validator \
     --experimental-retransmit-xdp-zero-copy \
 {% endif %}
 {% endif %}
-    --limit-ledger-size \
-    --do-not-require-vote-history
+    --limit-ledger-size

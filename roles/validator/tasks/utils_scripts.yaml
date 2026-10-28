@@ -1,7 +1,10 @@
 ---
+# One client-agnostic script, identical on every host (firedancer-support
+# installs the same file from a pinned commit); everything host-specific is in
+# /etc/node-transition.d/<name>.conf, rendered by transition_config.yaml.
 - name: Create solana validator transition script node-transition
-  template:
-    src: node-transition.sh.j2
+  copy:
+    src: node-transition.sh
     dest: "{{ solana_home }}/node-transition.sh"
     mode: 0755
     owner: "{{ solana_user }}"
