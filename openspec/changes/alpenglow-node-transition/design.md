@@ -120,6 +120,54 @@ emergency `set-identity` (D6). No mainnet assertion is needed once the flag is g
 differs from the standard one by its restart pins now; retiring it, `build-alpenglow.sh` and the `alpenglow`
 toggle is a separate change.
 
+### D10. First real hand-over (mainnet pair, 2026-10-29)
+
+Agave 4.4.0-rc.1 (Jito) on both sides, Alpenglow live. Installed with `--tags validator.transition` plus a
+manual `install` of the script (the `validator.copy.scripts` tag would also have overwritten the hosts' build
+scripts). `--check` from the voting host: 11/11 green. The transition itself: `wait-for-restart-window` returned
+immediately, `set-identity` to the unfunded key, `vote_history-<pk>.bin` carried by scp, plain `set-identity` on
+the peer (no `--require-tower`), both links moved; the peer reported the funded identity at once and the cluster
+showed the vote account current within a minute, last vote ~10 slots behind the tip. No surprise. Still to drill
+on a testnet pair: `--arm` and `--take-over` (tasks 5.1 to 5.3).
+
+Same day, a second shared standby (two primaries, mixed 4.3.2 / 4.4.0-rc.1): `--check` from the primary the
+standby is not armed for fails exactly one check, as intended. One wording bug found: the hint printed on that
+failure says `node-transition.sh <local name> --arm`, but on the peer the configuration carries the peer's own
+name for this primary (e.g. local `nx`, peer `lat`). The hint should say "on the peer: node-transition.sh
+<its name for this primary> --arm"; the script cannot know that name, so print it generically. Follow-up.
+Second follow-up from the same drill: `--arm` restarts the standby with `systemctl restart`, i.e. SIGTERM, which
+Agave does not treat as a clean exit; the unit has no `ExecStop`. `--arm` on an Agave standby should instead run
+`agave-validator -l <ledger> exit --force` and let `Restart=always` bring the service back on the re-pointed
+`start-node.sh` (same for Firedancer: `fd-safe-restart.sh`). The long part of a standby restart, the accounts
+index rebuild from the local snapshot, is the same either way.
+
+Second real hand-over the same evening, primary 4.3.2 -> shared standby 4.4.0-rc.1 (armed by hand with a
+clean `agave-validator exit --force` after re-pointing `start-node.sh`, because the hand-written per-primary
+start script still carried pre-4.4 flag names; worth a check in `--arm`): the 4.3.2-written vote history was
+accepted by 4.4.0-rc.1, the standby reported the funded identity at once, the cluster showed the vote account
+current within a minute. Pre-flight had been failing randomly before: the primary's NIC was dropping ~800 inbound
+packets/s (`rx_missed_errors`), so one of the dozen ssh connections per run timed out. Mitigated with
+`ConnectionAttempts 5` in the validator user's `~/.ssh/config`; the script should carry
+`-o ConnectionAttempts=3` in `SSH_OPTS` itself. Follow-up.
+
+2026-10-30: first Agave -> Firedancer pre-flight on the same pair after the standby's primary moved to Firedancer
+(firedancer-support, 26.10.5): 12/12 green from the voting Agave host, including the sudoers check. Caveat found:
+run as root on an Agave host, `remote()` sshes with root's key, which no peer authorizes; the operator must run
+the script as the validator user (`su - solana -c ...`). `remote()`/`scp` should run as `LOCAL_USER` whenever the
+script is invoked as root, like `as_user` already does for local commands. Follow-up.
+The hand-over itself ran minutes later: first Agave -> Firedancer transition on mainnet, all steps as designed
+(peer_take through `sudo -n fd-set-identity.sh staked --vote-history-file`), vote account current within a minute.
+
+2026-10-30 21:40 UTC, first Firedancer -> Agave hand-over on mainnet: FAILED between give-up and take. Firedancer
+26.10.5's votor tile saves the file of the identity it leaves as `vote_history-<pk>.bin.bak` ("the spare", see
+`fd_votor_tile.c` write_vote_history), so the `.bin` found at pre-flight was gone when `scp` ran; `set -e` stopped
+the script with the identity nowhere (no double vote, nine minutes without votes). Recovery: on the Agave standby,
+`set-identity --do-not-require-vote-history` (the primary was alive but had stopped voting, the standby was
+finalized far beyond). Fix: `do_transition` resolves the source after the give-up (`.bin`, else `.bin.bak`), names
+the destination explicitly, and dies with the two recovery options when neither exists. The firedancer-support
+scripts got the same `.bak` knowledge. Open question: the Agave standby did not take the Firedancer-written file on
+the first try (operator output lost); the byte layout matches Agave's (tag, signature, length, data), to be re-tested.
+
 ## Risks / Trade-offs
 
 - [Hosts whose link was flipped by a past run] → README upgrade note: `readlink` once per host; `--check` prints

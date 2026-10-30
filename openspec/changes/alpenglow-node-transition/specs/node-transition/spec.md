@@ -58,6 +58,16 @@ vote history file under Alpenglow, otherwise the tower file, and SHALL refuse wh
 - **WHEN** the state directory holds only `tower-1_9-<funded pubkey>.bin`
 - **THEN** that file is carried and an Agave peer is asked to require it
 
+#### Scenario: Firedancer renamed the file when it left the identity
+- **WHEN** the local client is Firedancer and, after the give-up, the state directory holds
+  `vote_history-<funded pubkey>.bin.bak` instead of the `.bin` seen at pre-flight
+- **THEN** the `.bak` is carried and lands on the peer under the plain `vote_history-<funded pubkey>.bin` name
+
+#### Scenario: File gone after the give-up
+- **WHEN** neither the `.bin` nor the `.bak` exists after the identity was given up
+- **THEN** the script stops before the copy with the two recovery options (take it back here, or finish on the
+  peer by hand) instead of failing on the copy
+
 ### Requirement: Hand-over works in both directions of any client mix
 
 The tooling SHALL give up the identity locally, place the state file where the peer's client reads it, and take

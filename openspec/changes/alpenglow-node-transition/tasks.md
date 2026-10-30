@@ -59,3 +59,6 @@
       design.md and run `openspec validate alpenglow-node-transition --strict`
 - [ ] 5.4 Publish the commit that `firedancer-support` pins and record its sha256 in that repo's change; verify
       `curl` of the raw file at that commit matches the local file
+- [ ] 5.5 After the `.bak` fix (2026-10-30): publish the commit, bump `node_transition_commit` / sha256 in
+      firedancer-support, reinstall on the Firedancer hosts first (the only ones that rename the file), then the Agave
+      hosts at convenience; verify a Firedancer -> Agave `--dry-run` shows the `.bak` source and the plain destination

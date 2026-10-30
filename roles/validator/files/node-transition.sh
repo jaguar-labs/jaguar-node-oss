@@ -269,8 +269,16 @@ do_transition() {
   wait_window
   local_give_up
   [ -n "${STATE_FILE:-}" ] || STATE_FILE="vote_history-$(pubkey_of local "$LOCAL_FUNDED_KEYPAIR").bin"   # dry-run without a file
-  log "carrying $STATE_FILE to $PEER_USER@$PEER_HOST:$PEER_STATE_DIR/"
-  run scp -p "${SSH_OPTS[@]}" "$LOCAL_STATE_DIR/$STATE_FILE" "$PEER_USER@$PEER_HOST:$PEER_STATE_DIR/"
+  # Firedancer (26.10.5+) saves the file of the identity it just left as <file>.bak; Agave
+  # leaves it in place. Resolve the source now, after the give-up, and name the destination so
+  # the peer always receives the plain name.
+  local src="$LOCAL_STATE_DIR/$STATE_FILE"
+  if [ ! -s "$src" ] && [ -s "$src.bak" ]; then src="$src.bak"; fi
+  if [ "$DRY" = 0 ] && [ ! -s "$src" ]; then
+    die "the identity is given up here but $LOCAL_STATE_DIR/$STATE_FILE (or .bak) is missing; nobody votes. Either take it back here now, or finish on the peer: copy the file by hand into $PEER_STATE_DIR/$STATE_FILE and take the identity there (--do-not-require-vote-history if the file is lost: this host has stopped voting)."
+  fi
+  log "carrying $src to $PEER_USER@$PEER_HOST:$PEER_STATE_DIR/$STATE_FILE"
+  run scp -p "${SSH_OPTS[@]}" "$src" "$PEER_USER@$PEER_HOST:$PEER_STATE_DIR/$STATE_FILE"
   peer_take "$STATE_FILE"
   if [ "$DRY" = 0 ]; then
     local p_id; p_id="$(running_identity peer || true)"
